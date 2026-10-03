@@ -27,7 +27,6 @@ import {
   cilEnvelopeClosed,
   cilBriefcase,
   cilMoney,
-  cilEye,
   cilEyeSlash,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
@@ -641,7 +640,7 @@ const AddStaff = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          <CIcon icon={showPassword ? cilEyeSlash : cilEye} />
+                          <CIcon icon={showPassword ? cilEyeSlash : View} />
                         </button>
                       </div>
 
