@@ -1,0 +1,78 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+
+# Package Managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =========================
+# React / Vite Build
+# =========================
+dist/
+build/
+
+# =========================
+# Electron Build Output
+# =========================
+release/
+win-unpacked/
+dist-electron/
+*.exe
+*.msi
+*.dmg
+*.AppImage
+
+# =========================
+# Database
+# =========================
+*.db
+offline.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# Environment Variables
+# =========================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =========================
+# Coverage / Testing
+# =========================
+coverage/
+
+# =========================
+# Logs
+# =========================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# IDE / OS Files
+# =========================
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.eslintcache
+
+# =========================
+# Temporary Files
+# =========================
+tmp/
+temp/
+.cache/
+
+# =========================
+# Electron Auto Updater
+# =========================
+latest.yml
+*.blockmap

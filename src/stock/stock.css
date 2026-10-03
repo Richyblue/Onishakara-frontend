@@ -1,0 +1,662 @@
+.oni-stock-page {
+    min-height: 100%;
+    padding: 24px;
+    background:
+      linear-gradient(
+        180deg,
+        #f7f5f0 0%,
+        #ffffff 45%,
+        #f8f8f7 100%
+      );
+    color: #202020;
+  }
+  
+  /* HEADER */
+  
+  .oni-stock-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .oni-stock-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #a9822d;
+    margin-bottom: 6px;
+  }
+  
+  .oni-stock-header h1 {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.7px;
+    color: #171717;
+  }
+  
+  .oni-stock-header p {
+    margin: 6px 0 0;
+    color: #747474;
+    font-size: 14px;
+  }
+  
+  .oni-stock-header-actions {
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+  }
+  
+  /* BUTTONS */
+  
+  .oni-stock-gold-button {
+    background: #b78a2d !important;
+    border-color: #b78a2d !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border-radius: 8px;
+    min-height: 40px;
+    padding: 0 18px;
+  }
+  
+  .oni-stock-gold-button:hover {
+    background: #956d1f !important;
+    border-color: #956d1f !important;
+  }
+  
+  .oni-stock-dark-button {
+    background: #202020 !important;
+    border-color: #202020 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    border-radius: 8px;
+    min-height: 40px;
+  }
+  
+  .oni-stock-outline-button {
+    background: #ffffff !important;
+    border: 1px solid #d7d3ca !important;
+    color: #333333 !important;
+    font-weight: 700;
+    border-radius: 8px;
+    min-height: 40px;
+  }
+  
+  /* SUMMARY */
+  
+  .oni-stock-summary {
+    margin-bottom: 20px;
+  }
+  
+  .oni-stock-summary-card {
+    min-height: 112px;
+    background: #ffffff;
+    border: 1px solid #e8e5df;
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.035);
+  }
+  
+  .oni-stock-summary-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 12px;
+    background: #f7f0df;
+    color: #a47a21;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 21px;
+  }
+  
+  .oni-stock-summary-card span {
+    display: block;
+    font-size: 12px;
+    color: #7b7b7b;
+    margin-bottom: 4px;
+  }
+  
+  .oni-stock-summary-card strong {
+    display: block;
+    font-size: 22px;
+    font-weight: 800;
+    color: #1d1d1d;
+  }
+  
+  .oni-stock-summary-card small {
+    color: #9a9a9a;
+    font-size: 11px;
+  }
+  
+  .oni-stock-alert-card .oni-stock-summary-icon {
+    background: #fff4df;
+    color: #b47a14;
+  }
+  
+  /* QUICK FILTERS */
+  
+  .oni-stock-quick-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  
+  .oni-stock-quick-filters button {
+    border: 1px solid #e1ded7;
+    background: #ffffff;
+    color: #555555;
+    border-radius: 100px;
+    padding: 9px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .oni-stock-quick-filters button:hover,
+  .oni-stock-quick-filters button.active {
+    background: #242424;
+    border-color: #242424;
+    color: #ffffff;
+  }
+  
+  .oni-stock-quick-filters span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 100px;
+    background: #f1eee8;
+    color: #555555;
+    font-size: 10px;
+  }
+  
+  .oni-stock-quick-filters button.active span {
+    background: #b78a2d;
+    color: #ffffff;
+  }
+  
+  /* FILTER CARD */
+  
+  .oni-stock-filter-card {
+    border: 1px solid #e8e5df;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.025);
+  }
+  
+  .oni-stock-filter-card .card-body {
+    padding: 18px;
+  }
+  
+  .oni-stock-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    color: #656565;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  
+  .oni-stock-input {
+    min-height: 42px;
+    border: 1px solid #ddd9d1 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    font-size: 13px;
+  }
+  
+  .oni-stock-input:focus {
+    border-color: #b78a2d !important;
+    box-shadow: 0 0 0 2px rgba(183, 138, 45, 0.1) !important;
+  }
+  
+  /* TABLE */
+  
+  .oni-stock-table-card {
+    border: 1px solid #e8e5df;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.03);
+  }
+  
+  .oni-stock-table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 19px 20px;
+    border-bottom: 1px solid #ece9e3;
+  }
+  
+  .oni-stock-table-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+  }
+  
+  .oni-stock-table-header p {
+    margin: 4px 0 0;
+    color: #888888;
+    font-size: 12px;
+  }
+  
+  .oni-stock-table-total {
+    font-size: 12px;
+    color: #777777;
+  }
+  
+  .oni-stock-table {
+    margin-bottom: 0 !important;
+  }
+  
+  .oni-stock-table thead th {
+    background: #faf9f7;
+    color: #777777;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.7px;
+    padding: 13px 14px;
+    border-bottom: 1px solid #e8e5df;
+    white-space: nowrap;
+  }
+  
+  .oni-stock-table tbody td {
+    padding: 14px;
+    border-color: #f0eee9;
+    font-size: 12px;
+    color: #454545;
+  }
+  
+  .oni-product-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 190px;
+  }
+  
+  .oni-product-avatar {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 9px;
+    background: #242424;
+    color: #d5ad55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+  }
+  
+  .oni-product-cell strong {
+    display: block;
+    color: #222222;
+    font-size: 12px;
+  }
+  
+  .oni-product-cell small {
+    display: block;
+    color: #999999;
+    margin-top: 3px;
+    font-size: 10px;
+  }
+  
+  .oni-code-cell strong {
+    display: block;
+    font-size: 11px;
+  }
+  
+  .oni-code-cell small {
+    display: block;
+    color: #999999;
+    margin-top: 3px;
+    font-size: 10px;
+  }
+  
+  .oni-variant {
+    display: inline-block;
+    background: #f6f3ec;
+    color: #6c5524;
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  
+  .oni-stock-number {
+    font-size: 15px;
+    color: #252525;
+  }
+  
+  .oni-stock-number.warning {
+    color: #a56d00;
+  }
+  
+  .oni-stock-number.danger {
+    color: #c33737;
+  }
+  
+  .oni-stock-status {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 5px 8px;
+    border-radius: 100px;
+  }
+  
+  .oni-stock-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+  
+  .oni-action-button {
+    background: #242424 !important;
+    border-color: #242424 !important;
+    color: #ffffff !important;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 6px;
+  }
+  
+  .oni-history-button {
+    background: #ffffff !important;
+    border: 1px solid #dedbd4 !important;
+    color: #555555 !important;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 6px;
+  }
+  
+  /* LOADING / EMPTY */
+  
+  .oni-stock-loading,
+  .oni-stock-empty {
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #888888;
+  }
+  
+  .oni-stock-loading p,
+  .oni-stock-empty p {
+    margin: 12px 0 0;
+    font-size: 13px;
+  }
+  
+  .oni-stock-empty-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #f5f2ec;
+    color: #a37a28;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 25px;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+  
+  .oni-stock-empty h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #333333;
+  }
+  
+  /* PAGINATION */
+  
+  .oni-stock-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 18px;
+    border-top: 1px solid #ece9e3;
+    color: #777777;
+    font-size: 11px;
+  }
+  
+  .oni-pagination-buttons {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  
+  .oni-pagination-buttons button {
+    min-width: 34px;
+    height: 32px;
+    border: 1px solid #dedbd4;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #555555;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  
+  .oni-pagination-buttons button:hover:not(:disabled),
+  .oni-pagination-buttons button.active {
+    background: #242424;
+    border-color: #242424;
+    color: #ffffff;
+  }
+  
+  .oni-pagination-buttons button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  
+  .oni-page-number {
+    font-size: 11px;
+    color: #777777;
+    padding: 0 5px;
+  }
+  
+  /* ADJUSTMENT MODAL */
+  
+  .oni-adjust-product {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 20px;
+    background: #faf8f3;
+    border: 1px solid #eee8db;
+    border-radius: 10px;
+  }
+  
+  .oni-adjust-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 9px;
+    background: #242424;
+    color: #d7ae57;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+  }
+  
+  .oni-adjust-product h5 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  
+  .oni-adjust-product p {
+    margin: 4px 0 0;
+    font-size: 11px;
+    color: #888888;
+  }
+  
+  .oni-adjust-quantity {
+    font-size: 17px !important;
+    font-weight: 800;
+  }
+  
+  .oni-stock-textarea {
+    border: 1px solid #ddd9d1;
+    border-radius: 8px;
+    font-size: 13px;
+    resize: vertical;
+  }
+  
+  .oni-adjust-preview {
+    margin-top: 20px;
+    padding: 16px;
+    background: #242424;
+    border-radius: 10px;
+    color: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr 1fr;
+    align-items: center;
+    gap: 14px;
+  }
+  
+  .oni-adjust-preview div {
+    text-align: center;
+  }
+  
+  .oni-adjust-preview span {
+    display: block;
+    color: #a9a9a9;
+    font-size: 10px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  
+  .oni-adjust-preview strong {
+    font-size: 20px;
+  }
+  
+  .oni-adjust-preview strong.danger {
+    color: #ff7676;
+  }
+  
+  .oni-adjust-preview strong.positive {
+    color: #e2bd68;
+  }
+  
+  .oni-adjust-arrow {
+    font-size: 24px;
+    color: #d0a84d;
+  }
+  
+  .oni-modal-cancel {
+    background: #ffffff !important;
+    border: 1px solid #ddd9d1 !important;
+    color: #444444 !important;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+  
+  /* HISTORY */
+  
+  .oni-date-cell strong {
+    font-size: 11px;
+    color: #555555;
+  }
+  
+  .oni-history-product strong {
+    display: block;
+    font-size: 12px;
+    color: #252525;
+  }
+  
+  .oni-history-product small,
+  .oni-reference-cell small,
+  .oni-reason-cell small {
+    display: block;
+    margin-top: 3px;
+    color: #999999;
+    font-size: 10px;
+  }
+  
+  .oni-reference-cell strong {
+    font-size: 11px;
+  }
+  
+  .oni-reason-cell {
+    max-width: 220px;
+  }
+  
+  .oni-reason-cell strong {
+    font-size: 11px;
+    color: #555555;
+  }
+  
+  .oni-change-positive {
+    color: #18854a;
+  }
+  
+  .oni-change-negative {
+    color: #c63737;
+  }
+  
+  /* MOBILE */
+  
+  @media (max-width: 900px) {
+    .oni-stock-page {
+      padding: 15px;
+    }
+  
+    .oni-stock-header {
+      flex-direction: column;
+    }
+  
+    .oni-stock-header-actions {
+      width: 100%;
+    }
+  
+    .oni-stock-header-actions button {
+      flex: 1;
+    }
+  
+    .oni-adjust-preview {
+      grid-template-columns: 1fr;
+    }
+  
+    .oni-adjust-arrow {
+      transform: rotate(90deg);
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .oni-stock-header h1 {
+      font-size: 24px;
+    }
+  
+    .oni-stock-summary-card {
+      min-height: 95px;
+      padding: 15px;
+    }
+  
+    .oni-stock-summary-card strong {
+      font-size: 18px;
+    }
+  
+    .oni-stock-pagination {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  
+    .oni-pagination-buttons {
+      width: 100%;
+    }
+  }
