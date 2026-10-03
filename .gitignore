@@ -36,7 +36,7 @@ offline.db
 # =========================
 # Environment Variables
 # =========================
-.envs
+.env
 .env.local
 .env.development.local
 .env.test.local
