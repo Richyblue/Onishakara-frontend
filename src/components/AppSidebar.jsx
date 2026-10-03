@@ -1,7 +1,7 @@
 /**
  * AppSidebar Component
  *
- * Premium Glamour POS navigation sidebar.
+ * Premium Onishakara Gold Fashion Store navigation sidebar.
  *
  * Functionality preserved:
  * - Redux-controlled visibility state
@@ -35,18 +35,22 @@ import navigation from '../_nav'
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
+
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
 
   return (
     <CSidebar
-      className="border-end glamour-sidebar"
+      className="border-end onishakara-sidebar"
       colorScheme="dark"
       position="fixed"
       unfoldable={unfoldable}
       visible={sidebarShow}
       onVisibleChange={(visible) => {
-        dispatch({ type: 'set', sidebarShow: visible })
+        dispatch({
+          type: 'set',
+          sidebarShow: visible,
+        })
       }}
       style={{
         background: 'linear-gradient(180deg, #111827 0%, #0f172a 55%, #111827 100%)',
@@ -57,6 +61,7 @@ const AppSidebar = () => {
       {/* =====================================================
           SIDEBAR HEADER
       ====================================================== */}
+
       <CSidebarHeader
         className="border-bottom"
         style={{
@@ -66,7 +71,10 @@ const AppSidebar = () => {
           background: 'linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0))',
         }}
       >
-        {/* Desktop Brand */}
+        {/* =====================================================
+            DESKTOP BRAND
+        ====================================================== */}
+
         <CSidebarBrand
           to="/"
           className="d-flex align-items-center"
@@ -82,6 +90,8 @@ const AppSidebar = () => {
               gap: '11px',
             }}
           >
+            {/* Brand Logo */}
+
             <div
               style={{
                 width: '40px',
@@ -105,6 +115,10 @@ const AppSidebar = () => {
               />
             </div>
 
+            {/* =================================================
+                ONISHAKARA BRAND
+            ================================================== */}
+
             <div
               style={{
                 lineHeight: 1.1,
@@ -115,10 +129,10 @@ const AppSidebar = () => {
                   color: '#ffffff',
                   fontSize: '15px',
                   fontWeight: 800,
-                  letterSpacing: '0.3px',
+                  letterSpacing: '0.5px',
                 }}
               >
-                GLAMOUR
+                ONISHAKARA
               </div>
 
               <div
@@ -126,16 +140,19 @@ const AppSidebar = () => {
                   color: '#e8bd35',
                   fontSize: '9px',
                   fontWeight: 700,
-                  letterSpacing: '1.7px',
+                  letterSpacing: '1.5px',
                   marginTop: '4px',
                 }}
               >
-                UNISEX SALON
+                FASHION STORE
               </div>
             </div>
           </div>
 
-          {/* Narrow Brand */}
+          {/* =====================================================
+              NARROW BRAND
+          ====================================================== */}
+
           <div
             className="sidebar-brand-narrow"
             style={{
@@ -160,7 +177,10 @@ const AppSidebar = () => {
           </div>
         </CSidebarBrand>
 
-        {/* Mobile Close */}
+        {/* =====================================================
+            MOBILE CLOSE
+        ====================================================== */}
+
         <CCloseButton
           className="d-lg-none"
           dark
@@ -179,6 +199,7 @@ const AppSidebar = () => {
       {/* =====================================================
           NAVIGATION
       ====================================================== */}
+
       <div
         style={{
           flex: 1,
@@ -194,6 +215,7 @@ const AppSidebar = () => {
       {/* =====================================================
           SIDEBAR FOOTER
       ====================================================== */}
+
       <CSidebarFooter
         className="border-top d-none d-lg-flex"
         style={{

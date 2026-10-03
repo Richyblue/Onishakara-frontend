@@ -1,185 +1,107 @@
 /**
+ * Onishakara Gold Fashion Store
  * Sidebar Navigation Configuration
  *
- * Defines the structure and content of the sidebar navigation menu.
- * Supports multiple navigation component types from CoreUI React:
- * - CNavItem: Single navigation link
- * - CNavGroup: Collapsible group of links
- * - CNavTitle: Section title/divider
+ * Fashion Retail / Inventory / Sales Management
  *
- * @module _nav
+ * Navigation is aligned with the current application routes.
  */
 
 import React from 'react'
 import CIcon from '@coreui/icons-react'
+
 import {
-  cilBell,
-  cilCalculator,
-  cilChartPie,
-  cilCursor,
-  cilDescription,
-  cilPeople,
-  cibLibreoffice,
-  cilBarChart,
-  cilPencil,
-  cilStorage,
   cilSpeedometer,
   cilCart,
+  cilStorage,
+  cilPeople,
   cilUserPlus,
+  cilBuilding,
+  cilTags,
+  cilList,
+  cilChartPie,
+  cilBarChart,
+  cilCash,
   cilCreditCard,
   cilSettings,
-  cilAccountLogout,
   cilAppsSettings,
+  cilAccountLogout,
+  cilNotes,
+  cilBasket,
+  cilHistory,
+  cilTransfer,
+  cilWarning,
+  cilUser,
 } from '@coreui/icons'
+
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
-/**
- * Navigation menu structure array
- *
- * @type {Array<Object>}
- * @property {React.ComponentType} component - CoreUI nav component (CNavItem, CNavGroup, CNavTitle)
- * @property {string} name - Display text for the nav item
- * @property {string} [to] - Internal route path (for CNavItem with routing)
- * @property {string} [href] - External URL (for CNavItem with external links)
- * @property {React.ReactNode} [icon] - Icon element to display
- * @property {Object} [badge] - Optional badge configuration
- * @property {string} badge.color - Badge color (info, danger, success, etc.)
- * @property {string} badge.text - Badge text content
- * @property {Array<Object>} [items] - Child items for CNavGroup
- *
- * @example
- * // Simple navigation item
- * {
- *   component: CNavItem,
- *   name: 'Dashboard',
- *   to: '/dashboard',
- *   icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
- * }
- *
- * @example
- * // Navigation group with children
- * {
- *   component: CNavGroup,
- *   name: 'Base',
- *   to: '/base',
- *   icon: <CIcon icon={cilPuzzle} customClassName="nav-icon" />,
- *   items: [
- *     {
- *       component: CNavItem,
- *       name: 'Cards',
- *       to: '/base/cards',
- *     },
- *   ],
- * }
- *
- * @example
- * // Section title
- * {
- *   component: CNavTitle,
- *   name: 'Theme',
- * }
- */
 const _nav = [
+  // ============================================================
+  // DASHBOARD
+  // ============================================================
+
   {
     component: CNavItem,
     name: 'Dashboard',
     to: '/dashboard',
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
+  },
+
+  // ============================================================
+  // POS
+  // ============================================================
+
+  {
+    component: CNavItem,
+    name: 'POS',
+    to: '/pos',
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
     badge: {
-      color: 'info',
-      text: 'NEW',
+      color: 'success',
+      text: 'SELL',
     },
   },
+
+  // ============================================================
+  // PRODUCTS & INVENTORY
+  // ============================================================
+
   {
-    component: CNavGroup,
-    name: 'Users',
-    to: '/buttons',
-    icon: <CIcon icon={cilUserPlus} customClassName="nav-icon" />,
-    items: [
-      {
-        component: CNavItem,
-        name: 'Admin',
-        to: '/buttons/buttons',
-      },
-      {
-        component: CNavItem,
-        name: 'staff',
-        to: '/staff',
-      },
-      {
-        component: CNavItem,
-        name: 'View',
-        to: '/viewStaff',
-      },
-      {
-        component: CNavItem,
-        name: 'Attendance',
-        to: '/attendanceDashboard',
-      },
-      {
-        component: CNavItem,
-        name: 'Staff Penalty',
-        to: '/staffPenalty',
-      },
-      {
-        component: CNavItem,
-        name: 'Service Commission',
-        to: '/serviceCommission',
-      },
-    ],
+    component: CNavTitle,
+    name: 'PRODUCTS & INVENTORY',
   },
+
   {
     component: CNavGroup,
-    name: 'Products Management',
+    name: 'Products',
     to: '/products',
     icon: <CIcon icon={cilStorage} customClassName="nav-icon" />,
     items: [
       {
         component: CNavItem,
-        name: 'Create Products',
+        name: 'All Products',
         to: '/products',
       },
-      {
-        component: CNavItem,
-        name: 'View Product',
-        to: '/viewproduct',
-      },
-      {
-        component: CNavItem,
-        name: 'Recycle Bin',
-        to: '/recycleBin',
-      },
-      {
-        component: CNavItem,
-        name: 'Product Consumption',
-        to: '/productConsumption',
-      },
-    ],
-  },
 
-  {
-    component: CNavItem,
-    name: 'Pos',
-    to: '/pos',
-    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
-  },
+      {
+        component: CNavItem,
+        name: 'View Products',
+        to: '/viewProduct',
+      },
 
-  {
-    component: CNavGroup,
-    name: 'Expenses Management',
-    to: '',
-    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
-    items: [
       {
         component: CNavItem,
-        name: 'Create Expenes',
-        to: '/expense',
+        name: 'Categories',
+        to: '/categories',
       },
+
       {
         component: CNavItem,
-        name: 'View Expense',
-        to: '/viewExpense',
+        name: 'Brands',
+        to: '/brands',
       },
+
       {
         component: CNavItem,
         name: 'Recycle Bin',
@@ -188,90 +110,272 @@ const _nav = [
     ],
   },
 
+  // ============================================================
+  // STOCK
+  // ============================================================
+
   {
     component: CNavGroup,
-    name: 'Services',
-    to: '',
-    icon: <CIcon icon={cibLibreoffice} customClassName="nav-icon" />,
+    name: 'Stock Management',
+    to: '/stock',
+    icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
     items: [
       {
         component: CNavItem,
-        name: 'Create Service',
-        to: '/service',
+        name: 'Stock Overview',
+        to: '/stock',
       },
+
       {
         component: CNavItem,
-        name: 'View Service',
-        to: '/viewService',
+        name: 'Stock History',
+        to: '/stock/history',
       },
     ],
   },
 
+  // ============================================================
+  // PURCHASES
+  // ============================================================
+
   {
     component: CNavGroup,
-    name: 'Customer',
-    to: '',
+    name: 'Purchases',
+    to: '/purchases',
+    icon: <CIcon icon={cilNotes} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'All Purchases',
+        to: '/purchases',
+      },
+
+      {
+        component: CNavItem,
+        name: 'New Purchase',
+        to: '/purchases/add',
+      },
+    ],
+  },
+
+  // ============================================================
+  // SUPPLIERS
+  // ============================================================
+
+  {
+    component: CNavGroup,
+    name: 'Suppliers',
+    to: '/suppliers',
+    icon: <CIcon icon={cilBuilding} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'All Suppliers',
+        to: '/suppliers',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Add Supplier',
+        to: '/suppliers/add',
+      },
+    ],
+  },
+
+  // ============================================================
+  // CUSTOMERS
+  // ============================================================
+
+  {
+    component: CNavGroup,
+    name: 'Customers',
+    to: '/viewCustomer',
     icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
     items: [
       {
         component: CNavItem,
-        name: 'Create Customer',
-        to: '/customer',
+        name: 'Customers',
+        to: '/viewCustomer',
       },
+
       {
         component: CNavItem,
-        name: 'View Customer',
-        to: '/viewCustomer',
+        name: 'Add Customer',
+        to: '/customer',
       },
     ],
   },
+
+  // ============================================================
+  // SALES
+  // ============================================================
+
   {
-    component: CNavItem,
-    name: 'Sales Report',
-    to: '/report',
-    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
+    component: CNavTitle,
+    name: 'SALES & TRANSACTIONS',
   },
+
+  {
+    component: CNavGroup,
+    name: 'Sales',
+    to: '/sales',
+    icon: <CIcon icon={cilCash} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'Sales Transactions',
+        to: '/sales',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Sales Report',
+        to: '/sales/report',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Sales Details',
+        to: '/sales/:id',
+      },
+    ],
+  },
+
+  // ============================================================
+  // RETURNS
+  // ============================================================
 
   {
     component: CNavItem,
     name: 'Return Sales',
     to: '/returns',
-    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilTransfer} customClassName="nav-icon" />,
   },
+
+  // ============================================================
+  // REPORTS
+  // ============================================================
+
   {
-    component: CNavItem,
-    name: 'Commissions',
-    to: '/commission',
-    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
-    name: 'Loyaltys',
-    to: '/loyaltycard',
-    icon: <CIcon icon={cilCreditCard} customClassName="nav-icon" />,
+    component: CNavTitle,
+    name: 'REPORTS & FINANCE',
   },
 
   {
-    component: CNavItem,
+    component: CNavGroup,
+    name: 'Reports',
+    to: '/report',
+    icon: <CIcon icon={cilChartPie} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'Management Report',
+        to: '/report',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Sales Report',
+        to: '/sales/report',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Sales Summary',
+        to: '/salesReport',
+      },
+    ],
+  },
+
+  // ============================================================
+  // EXPENSES
+  // ============================================================
+
+  {
+    component: CNavGroup,
+    name: 'Expenses',
+    to: '/viewExpense',
+    icon: <CIcon icon={cilBarChart} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'All Expenses',
+        to: '/viewExpense',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Add Expense',
+        to: '/expense',
+      },
+    ],
+  },
+
+  // ============================================================
+  // STAFF
+  // ============================================================
+
+  {
+    component: CNavTitle,
+    name: 'STAFF MANAGEMENT',
+  },
+
+  {
+    component: CNavGroup,
+    name: 'Staff',
+    to: '/viewStaff',
+    icon: <CIcon icon={cilUserPlus} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'All Staff',
+        to: '/viewStaff',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Add Staff',
+        to: '/staff',
+      },
+    ],
+  },
+
+  // ============================================================
+  // SETTINGS
+  // ============================================================
+
+  {
+    component: CNavTitle,
+    name: 'SYSTEM',
+  },
+
+  {
+    component: CNavGroup,
     name: 'Settings',
     to: '/setting',
     icon: <CIcon icon={cilSettings} customClassName="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: 'General Settings',
+        to: '/setting',
+      },
+
+      {
+        component: CNavItem,
+        name: 'Hardware Settings',
+        to: '/hardwareSetting',
+      },
+    ],
   },
+
+  // ============================================================
+  // LOGOUT
+  // ============================================================
+
   {
     component: CNavItem,
-    name: 'Hardware Settings',
-    to: '/hardwareSetting',
-    icon: <CIcon icon={cilAppsSettings} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
-    name: 'Business Hours',
-    to: '/businessHours',
-    icon: <CIcon icon={cilSettings} customClassName="nav-icon" />,
-  },
-  {
-    component: CNavItem,
-    name: 'Signout',
+    name: 'Sign Out',
     to: '/logout',
     icon: <CIcon icon={cilAccountLogout} customClassName="nav-icon" />,
   },

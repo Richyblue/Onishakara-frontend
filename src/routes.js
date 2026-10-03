@@ -24,6 +24,9 @@ const ViewProduct = React.lazy(() => import('./product/viewProduct'))
 const EditProduct = React.lazy(() => import('./product/editProduct'))
 const RecycleBin = React.lazy(() => import('./product/RecycleBin'))
 
+const Categories = React.lazy(() => import('./category/Categories'))
+const Brands = React.lazy(() => import('./brand/Brands'))
+
 // ============================================================
 // CUSTOMERS
 // ============================================================
@@ -114,8 +117,6 @@ const CoreUIIcons = React.lazy(() => import('./views/icons/coreui-icons/CoreUIIc
 
 const Flags = React.lazy(() => import('./views/icons/flags/Flags'))
 
-const Brands = React.lazy(() => import('./views/icons/brands/Brands'))
-
 // Notifications
 const Alerts = React.lazy(() => import('./views/notifications/alerts/Alerts'))
 
@@ -177,6 +178,27 @@ export const routes = [
     roles: ['admin', 'manager'],
   },
 
+  // ----------------------------------------------------------
+  // CATEGORIES
+  // ----------------------------------------------------------
+
+  {
+    path: '/categories',
+    name: 'Categories',
+    element: Categories,
+    roles: ['admin', 'manager'],
+  },
+
+  // ----------------------------------------------------------
+  // BRANDS
+  // ----------------------------------------------------------
+
+  {
+    path: '/brands',
+    name: 'Brands',
+    element: Brands,
+    roles: ['admin', 'manager'],
+  },
   // ----------------------------------------------------------
   // CUSTOMERS
   // ----------------------------------------------------------
@@ -451,12 +473,6 @@ export const routes = [
     path: '/icons/flags',
     name: 'Flags',
     element: Flags,
-  },
-
-  {
-    path: '/icons/brands',
-    name: 'Brands',
-    element: Brands,
   },
 
   // ----------------------------------------------------------

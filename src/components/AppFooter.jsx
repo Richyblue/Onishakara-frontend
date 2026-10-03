@@ -43,7 +43,7 @@ const AppFooter = () => {
               fontWeight: 700,
             }}
           >
-            Glamour Unisex Salon POS
+            Onishakara Fashion Store
           </strong>
         </span>
       </div>

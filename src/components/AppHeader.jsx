@@ -109,7 +109,7 @@ const AppHeader = () => {
         </CHeaderToggler>
 
         {/* =====================================================
-            BRAND
+            ONISHAKARA BRAND
         ====================================================== */}
 
         <div
@@ -119,6 +119,8 @@ const AppHeader = () => {
             paddingLeft: '18px',
           }}
         >
+          {/* Brand Mark */}
+
           <div
             style={{
               width: '38px',
@@ -132,10 +134,13 @@ const AppHeader = () => {
               fontWeight: '900',
               fontSize: '15px',
               marginRight: '10px',
+              boxShadow: '0 3px 10px rgba(17, 24, 39, 0.12)',
             }}
           >
-            G
+            O
           </div>
+
+          {/* Brand Name */}
 
           <div>
             <div
@@ -144,9 +149,10 @@ const AppHeader = () => {
                 fontSize: '14px',
                 fontWeight: '800',
                 lineHeight: '1.1',
+                letterSpacing: '0.4px',
               }}
             >
-              GLAMOUR
+              ONISHAKARA
             </div>
 
             <div
@@ -158,7 +164,7 @@ const AppHeader = () => {
                 marginTop: '2px',
               }}
             >
-              POS SYSTEM
+              FASHION STORE
             </div>
           </div>
         </div>
@@ -168,6 +174,8 @@ const AppHeader = () => {
         ====================================================== */}
 
         <CHeaderNav className="d-none d-md-flex ms-4">
+          {/* Dashboard */}
+
           <CNavItem>
             <CNavLink
               to="/dashboard"
@@ -186,35 +194,67 @@ const AppHeader = () => {
             </CNavLink>
           </CNavItem>
 
-          <CNavItem>
-            <CNavLink
-              href="#"
-              style={{
-                color: '#4b5563',
-                fontWeight: '600',
-                fontSize: '13px',
-                padding: '10px 13px',
-                borderRadius: '9px',
-              }}
-            >
-              Users
-            </CNavLink>
-          </CNavItem>
+          {/* Users */}
 
           <CNavItem>
             <CNavLink
-              href="#"
-              style={{
-                color: '#4b5563',
-                fontWeight: '600',
+              to="/viewStaff"
+              as={NavLink}
+              style={({ isActive }) => ({
+                color: isActive ? '#a07800' : '#4b5563',
+                fontWeight: isActive ? '800' : '600',
                 fontSize: '13px',
                 padding: '10px 13px',
                 borderRadius: '9px',
-              }}
+                background: isActive ? '#fff8e1' : 'transparent',
+                marginRight: '3px',
+              })}
+            >
+              Staff
+            </CNavLink>
+          </CNavItem>
+
+          {/* Products */}
+
+          <CNavItem>
+            <CNavLink
+              to="/products"
+              as={NavLink}
+              style={({ isActive }) => ({
+                color: isActive ? '#a07800' : '#4b5563',
+                fontWeight: isActive ? '800' : '600',
+                fontSize: '13px',
+                padding: '10px 13px',
+                borderRadius: '9px',
+                background: isActive ? '#fff8e1' : 'transparent',
+                marginRight: '3px',
+              })}
+            >
+              Products
+            </CNavLink>
+          </CNavItem>
+
+          {/* Settings */}
+
+          <CNavItem>
+            <CNavLink
+              to="/setting"
+              as={NavLink}
+              style={({ isActive }) => ({
+                color: isActive ? '#a07800' : '#4b5563',
+                fontWeight: isActive ? '800' : '600',
+                fontSize: '13px',
+                padding: '10px 13px',
+                borderRadius: '9px',
+                background: isActive ? '#fff8e1' : 'transparent',
+                marginRight: '3px',
+              })}
             >
               Settings
             </CNavLink>
           </CNavItem>
+
+          {/* Logout */}
 
           <CNavItem
             style={{
@@ -232,7 +272,9 @@ const AppHeader = () => {
         ====================================================== */}
 
         <CHeaderNav className="ms-auto align-items-center">
-          {/* Notification */}
+          {/* =====================================================
+              NOTIFICATIONS
+          ====================================================== */}
 
           <CNavItem>
             <CNavLink
@@ -272,7 +314,9 @@ const AppHeader = () => {
             </CNavLink>
           </CNavItem>
 
-          {/* Activity/List */}
+          {/* =====================================================
+              ACTIVITY / LIST
+          ====================================================== */}
 
           <CNavItem className="d-none d-sm-block">
             <CNavLink
@@ -298,7 +342,9 @@ const AppHeader = () => {
             </CNavLink>
           </CNavItem>
 
-          {/* Messages */}
+          {/* =====================================================
+              MESSAGES
+          ====================================================== */}
 
           <CNavItem className="d-none d-sm-block">
             <CNavLink
@@ -397,6 +443,8 @@ const AppHeader = () => {
                 boxShadow: '0 10px 30px rgba(17, 24, 39, 0.12)',
               }}
             >
+              {/* Light */}
+
               <CDropdownItem
                 active={colorMode === 'light'}
                 className="d-flex align-items-center"
@@ -413,6 +461,8 @@ const AppHeader = () => {
                 Light
               </CDropdownItem>
 
+              {/* Dark */}
+
               <CDropdownItem
                 active={colorMode === 'dark'}
                 className="d-flex align-items-center"
@@ -428,6 +478,8 @@ const AppHeader = () => {
                 <CIcon className="me-2" icon={cilMoon} size="lg" />
                 Dark
               </CDropdownItem>
+
+              {/* Auto */}
 
               <CDropdownItem
                 active={colorMode === 'auto'}
@@ -447,7 +499,9 @@ const AppHeader = () => {
             </CDropdownMenu>
           </CDropdown>
 
-          {/* Divider */}
+          {/* =====================================================
+              DIVIDER
+          ====================================================== */}
 
           <li
             className="nav-item py-1 d-none d-sm-block"
@@ -465,7 +519,7 @@ const AppHeader = () => {
           </li>
 
           {/* =====================================================
-              USER AREA
+              ONISHAKARA USER / BRAND MARK
           ====================================================== */}
 
           <li
@@ -486,9 +540,10 @@ const AppHeader = () => {
                 justifyContent: 'center',
                 fontWeight: '800',
                 fontSize: '14px',
+                boxShadow: '0 3px 10px rgba(17, 24, 39, 0.12)',
               }}
             >
-              G
+              O
             </div>
           </li>
         </CHeaderNav>

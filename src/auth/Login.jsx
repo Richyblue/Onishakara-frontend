@@ -684,7 +684,7 @@ const Login = () => {
                 <div>
                   <div className="logo-title">ONISHAKARA</div>
 
-                  <div className="logo-subtitle">GOLD FASHION STORE</div>
+                  <div className="logo-subtitle">FASHION STORE</div>
                 </div>
               </div>
 
@@ -751,7 +751,7 @@ const Login = () => {
               {/* FOOTER */}
 
               <div className="brand-footer">
-                <span>© {new Date().getFullYear()} Onishakara Gold Fashion Store</span>
+                <span>© {new Date().getFullYear()} Onishakara Fashion Store</span>
 
                 <span className="footer-divider">|</span>
 
