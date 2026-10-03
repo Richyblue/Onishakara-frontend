@@ -24,7 +24,7 @@ const ViewProduct = React.lazy(() => import('./product/viewProduct'))
 const EditProduct = React.lazy(() => import('./product/editProduct'))
 const RecycleBin = React.lazy(() => import('./product/RecycleBin'))
 
-const Categories = React.lazy(() => import('./categories/Categories'))
+const Categories = React.lazy(() => import('./categories/Category'))
 const Brands = React.lazy(() => import('./brands/Brand'))
 
 // ============================================================
