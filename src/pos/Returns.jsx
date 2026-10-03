@@ -23,7 +23,7 @@ import {
   CAlert,
 } from '@coreui/react'
 
-import { cilSearch, cilReload, cilCloudDownload, cilEye } from '@coreui/icons'
+import { cilSearch, cilReload, cilCloudDownload, } from '@coreui/icons'
 
 import CIcon from '@coreui/icons-react'
 

@@ -25,7 +25,6 @@ import {
   cilChevronLeft,
   cilChevronRight,
   cilCloudDownload,
-  cilEye,
   cilReload,
   cilSearch,
 } from '@coreui/icons'
@@ -557,7 +556,6 @@ const Sales = () => {
                           className="view-sale-button"
                           onClick={() => navigate(`/sales/${sale.id}`)}
                         >
-                          <CIcon icon={cilEye} className="me-1" />
                           View
                         </CButton>
                       </CTableDataCell>

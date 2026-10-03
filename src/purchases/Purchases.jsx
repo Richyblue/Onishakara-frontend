@@ -30,7 +30,6 @@ import {
   cilCalendar,
   cilCheckCircle,
   cilCloudDownload,
-  cilEye,
   cilFilter,
   cilPencil,
   cilPlus,
@@ -1227,7 +1226,7 @@ const Purchases = () => {
                               title="View Purchase"
                               onClick={() => navigate(`/purchases/${purchase.id}`)}
                             >
-                              <CIcon icon={cilEye} />
+                              View
                             </button>
 
                             {String(purchase.status).toLowerCase() === 'draft' && (
