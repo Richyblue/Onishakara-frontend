@@ -12,7 +12,6 @@ import {
   cilBriefcase,
   cilCheckCircle,
   cilXCircle,
-  cilIdBadge,
   cilReload,
 } from '@coreui/icons'
 
@@ -807,7 +806,7 @@ const ViewStaff = () => {
                             onClick={() => openIDCard(staff)}
                             title="View ID Card"
                           >
-                            <CIcon icon={cilIdBadge} />
+                            ID Card
                           </CButton>
 
                           {/* EDIT */}

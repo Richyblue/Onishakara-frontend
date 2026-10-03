@@ -27,7 +27,6 @@ import {
   cilEnvelopeClosed,
   cilBriefcase,
   cilMoney,
-  cilEyeSlash,
 } from '@coreui/icons'
 import CIcon from '@coreui/icons-react'
 import { useNavigate } from 'react-router-dom'
@@ -640,7 +639,7 @@ const AddStaff = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          <CIcon icon={showPassword ? cilEyeSlash : View} />
+                          view
                         </button>
                       </div>
 

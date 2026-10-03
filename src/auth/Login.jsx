@@ -15,7 +15,13 @@ import {
   CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilLockLocked, cilUser, cilCheckCircle, cilWifi, cilCloudDownload } from '@coreui/icons'
+import {
+  cilLockLocked,
+  cilUser,
+  cilCheckCircle,
+  cilWifiSignal0,
+  cilCloudDownload,
+} from '@coreui/icons'
 
 /*
 |--------------------------------------------------------------------------

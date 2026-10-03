@@ -653,7 +653,6 @@ const Returns = () => {
                           className="border"
                           onClick={() => openReturn(item)}
                         >
-                          <CIcon icon={cilEye} className="me-1" />
                           View
                         </CButton>
                       </CTableDataCell>

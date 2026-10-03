@@ -14,7 +14,7 @@ import {
   cilCheckCircle,
   cilCart,
   cilWarning,
-  cilRefresh,
+  cilReload,
 } from '@coreui/icons'
 
 import CIcon from '@coreui/icons-react'
@@ -713,7 +713,7 @@ const Report = () => {
                 onClick={getSalesReport}
                 disabled={loading}
               >
-                <CIcon icon={cilRefresh} className="me-2" />
+                <CIcon icon={cilReload} className="me-2" />
                 Refresh
               </CButton>
 
