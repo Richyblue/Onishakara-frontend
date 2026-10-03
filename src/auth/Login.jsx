@@ -69,9 +69,9 @@ const Login = () => {
 
   const navigate = useNavigate()
 
-  const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+  const API_ROOT = import.meta.env.VITE_BACKEND_URL
 
-  const API_URL = `${API_ROOT}/api/auth/login`
+  const API_URL = `${API_ROOT}api/auth/login`
 
   /*
   |--------------------------------------------------------------------------
