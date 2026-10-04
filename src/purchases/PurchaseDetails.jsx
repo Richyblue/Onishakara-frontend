@@ -32,8 +32,8 @@ import axios from 'axios'
 import Swal from 'sweetalert2'
 import { useNavigate, useParams } from 'react-router-dom'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-const API_URL = `${API_ROOT}/api/v1`
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
+const API_URL = `${API_ROOT}api/v1`
 
 const money = (value) => {
   const number = Number(value || 0)

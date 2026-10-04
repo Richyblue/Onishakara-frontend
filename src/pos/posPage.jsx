@@ -33,8 +33,8 @@ import ClearCartModal from '../pos/ClearCartModal'
 import DailyReportModal from '../pos/DailyReport'
 import ShowHeldSalesModal from './ShowHeldSalesModal'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-const API_URL = `${API_ROOT}/api/v1`
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
+const API_URL = `${API_ROOT}api/v1`
 
 const POSPage = () => {
   const user = useMemo(() => {

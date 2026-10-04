@@ -47,7 +47,7 @@ const ExpenseList = () => {
   // API
   // ==========================================
 
-  const API_URL = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+  const API_URL = import.meta.env.VITE_BACKEND_URL
 
   // ==========================================
   // STATE
@@ -163,7 +163,7 @@ const ExpenseList = () => {
 
       const token = localStorage.getItem('token')
 
-      const response = await axios.get(`${API_URL}/api/v1/expenses`, {
+      const response = await axios.get(`${API_URL}api/v1/expenses`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

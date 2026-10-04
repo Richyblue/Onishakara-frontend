@@ -19,7 +19,7 @@ import {
 } from '@coreui/react'
 
 const AddExpense = () => {
-  const API_URL = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+  const API_URL = import.meta.env.VITE_BACKEND_URL
 
   // ==========================================
   // TODAY
@@ -127,7 +127,7 @@ const AddExpense = () => {
       const token = localStorage.getItem('token')
 
       const response = await axios.post(
-        `${API_URL}/api/v1/expenses`,
+        `${API_URL}api/v1/expenses`,
         {
           title: formData.title.trim(),
           amount,

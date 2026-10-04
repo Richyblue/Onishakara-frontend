@@ -33,9 +33,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 /* CONFIG                                                                     */
 /* -------------------------------------------------------------------------- */
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
 
-const API_URL = `${API_ROOT}/api/v1`
+const API_URL = `${API_ROOT}api/v1`
 
 /* -------------------------------------------------------------------------- */
 /* INITIAL FORM                                                               */

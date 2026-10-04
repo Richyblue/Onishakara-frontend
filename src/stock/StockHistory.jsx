@@ -20,8 +20,8 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom'
 import './stock.css'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-const API_URL = `${API_ROOT}/api/v1`
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
+const API_URL = `${API_ROOT}api/v1`
 
 const getToken = () =>
   localStorage.getItem('token') ||

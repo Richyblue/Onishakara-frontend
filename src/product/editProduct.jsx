@@ -1,44 +1,101 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
+import { useNavigate, useParams } from 'react-router-dom'
 
 import {
-  CRow,
-  CCol,
+  CAlert,
+  CBadge,
+  CButton,
   CCard,
   CCardBody,
   CCardHeader,
+  CCol,
+  CContainer,
   CForm,
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CButton,
+  CFormTextarea,
   CInputGroup,
   CInputGroupText,
-  CAlert,
+  CRow,
   CSpinner,
-  CBadge,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from '@coreui/react'
 
-import { successAlert, errorAlert } from 'src/utils/alerts'
+import {
+  cilArrowLeft,
+  cilCheckAlt,
+  cilCloudUpload,
+  cilImage,
+  cilPlus,
+  cilReload,
+  cilSave,
+  cilTrash,
+  cilX,
+} from '@coreui/icons'
+
+import CIcon from '@coreui/icons-react'
+
+import { successAlert, errorAlert } from '../../utils/alerts'
+
+const API_URL = import.meta.env.VITE_BACKEND_URL
+
+const api = (path) => `${API_URL}${path}`
+
+const money = (value) =>
+  Number(value || 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+
+const getToken = () => localStorage.getItem('token')
+
+const authConfig = () => ({
+  headers: {
+    Authorization: `Bearer ${getToken()}`,
+  },
+})
+
+const emptyVariant = {
+  id: null,
+  size: '',
+  color: '',
+  sku: '',
+  barcode: '',
+  costPrice: '',
+  sellingPrice: '',
+  quantity: 0,
+  reorderLevel: 5,
+  image: null,
+  status: 'active',
+}
 
 const EditProduct = () => {
-  const { id } = useParams()
   const navigate = useNavigate()
+  const { id } = useParams()
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL || ''
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [stockSaving, setStockSaving] = useState(false)
+  const [variantSaving, setVariantSaving] = useState(false)
 
-  const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(true)
-
-  const [loadingCategories, setLoadingCategories] = useState(false)
-  const [loadingBrands, setLoadingBrands] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const [categories, setCategories] = useState([])
   const [brands, setBrands] = useState([])
 
-  const [imagePreview, setImagePreview] = useState(null)
-  const [existingImage, setExistingImage] = useState(null)
+  const [product, setProduct] = useState(null)
+
+  const [existingImage, setExistingImage] = useState('')
+  const [imagePreview, setImagePreview] = useState('')
+  const [imageFile, setImageFile] = useState(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,168 +105,163 @@ const EditProduct = () => {
     brandId: '',
     costPrice: '',
     sellingPrice: '',
-    quantity: '',
     reorderLevel: 5,
     status: 'active',
-    image: null,
   })
 
-  /* =========================================================
-     AUTH CONFIG
-  ========================================================= */
+  const [stockForm, setStockForm] = useState({
+    quantity: '',
+    reason: '',
+    notes: '',
+  })
 
-  const getAuthConfig = () => {
-    const token = localStorage.getItem('token')
-
-    return {
-      headers: {
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
-      },
-    }
-  }
+  const [variantForm, setVariantForm] = useState(emptyVariant)
+  const [editingVariantId, setEditingVariantId] = useState(null)
 
   /* =========================================================
-     GET PRODUCT
+     LOAD PRODUCT
   ========================================================= */
 
-  const getProduct = async () => {
+  const getProduct = useCallback(async () => {
     try {
-      setFetching(true)
+      setLoading(true)
+      setError('')
 
-      const response = await axios.get(`${API_URL}api/v1/products/${id}`, getAuthConfig())
+      const response = await axios.get(api(`/api/v1/products/${id}`), authConfig())
 
-      const product = response?.data?.product || response?.data?.data || response?.data
+      const data = response?.data?.product || response?.data?.data || response?.data
 
-      if (!product) {
+      if (!data) {
         throw new Error('Product data was not returned.')
       }
 
+      setProduct(data)
+
       setFormData({
-        name: product.name || '',
-        sku: product.sku || '',
-        barcode: product.barcode || '',
-        categoryId: product.categoryId || '',
-        brandId: product.brandId || '',
-        costPrice: product.costPrice ?? '',
-        sellingPrice: product.sellingPrice ?? '',
-        quantity: product.quantity ?? '',
-        reorderLevel: product.reorderLevel ?? 5,
-        status: product.status || 'active',
-        image: null,
+        name: data.name || '',
+        sku: data.sku || '',
+        barcode: data.barcode || '',
+        categoryId: data.categoryId || '',
+        brandId: data.brandId || '',
+        costPrice: data.costPrice ?? '',
+        sellingPrice: data.sellingPrice ?? '',
+        reorderLevel: data.reorderLevel ?? 5,
+        status: data.status || 'active',
       })
 
-      /*
-       * Support different image field formats that may
-       * already exist in the database/API.
-       */
-      const productImage = product.image || product.imageUrl || product.image_url || null
+      const image = data.image || data.imageUrl || data.image_url || ''
 
-      setExistingImage(productImage)
+      setExistingImage(image)
+      setImagePreview(image)
+    } catch (err) {
+      console.error('GET PRODUCT ERROR:', err)
 
-      if (productImage) {
-        setImagePreview(productImage)
-      }
-    } catch (error) {
-      console.error('Get product error:', error)
+      const message = err?.response?.data?.message || err?.message || 'Failed to load product.'
 
-      errorAlert(error?.response?.data?.message || 'Failed to load product.')
+      setError(message)
+      errorAlert(message)
     } finally {
-      setFetching(false)
+      setLoading(false)
     }
-  }
-
-  /* =========================================================
-     GET CATEGORIES
-  ========================================================= */
-
-  const fetchCategories = async () => {
-    try {
-      setLoadingCategories(true)
-
-      const response = await axios.get(`${API_URL}api/v1/categories`, getAuthConfig())
-
-      const data = response?.data
-
-      if (Array.isArray(data)) {
-        setCategories(data)
-      } else if (Array.isArray(data?.categories)) {
-        setCategories(data.categories)
-      } else if (Array.isArray(data?.data)) {
-        setCategories(data.data)
-      } else {
-        setCategories([])
-      }
-    } catch (error) {
-      console.error('Category fetch error:', error)
-
-      errorAlert(error?.response?.data?.message || 'Unable to load categories.')
-    } finally {
-      setLoadingCategories(false)
-    }
-  }
-
-  /* =========================================================
-     GET BRANDS
-  ========================================================= */
-
-  const fetchBrands = async () => {
-    try {
-      setLoadingBrands(true)
-
-      const response = await axios.get(`${API_URL}api/v1/brands`, getAuthConfig())
-
-      const data = response?.data
-
-      if (Array.isArray(data)) {
-        setBrands(data)
-      } else if (Array.isArray(data?.brands)) {
-        setBrands(data.brands)
-      } else if (Array.isArray(data?.data)) {
-        setBrands(data.data)
-      } else {
-        setBrands([])
-      }
-    } catch (error) {
-      console.error('Brand fetch error:', error)
-
-      errorAlert(error?.response?.data?.message || 'Unable to load brands.')
-    } finally {
-      setLoadingBrands(false)
-    }
-  }
-
-  /* =========================================================
-     INITIAL LOAD
-  ========================================================= */
-
-  useEffect(() => {
-    if (!id) {
-      errorAlert('Product ID is missing.')
-      setFetching(false)
-      return
-    }
-
-    const loadPage = async () => {
-      await Promise.all([getProduct(), fetchCategories(), fetchBrands()])
-    }
-
-    loadPage()
   }, [id])
 
   /* =========================================================
-     HANDLE INPUT
+     LOAD CATEGORIES
   ========================================================= */
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await axios.get(api('/api/v1/categories'), authConfig())
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
+      const data = response?.data
+
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.categories)
+          ? data.categories
+          : Array.isArray(data?.data)
+            ? data.data
+            : []
+
+      setCategories(list)
+    } catch (err) {
+      console.error('CATEGORY ERROR:', err)
+    }
+  }, [])
+
+  /* =========================================================
+     LOAD BRANDS
+  ========================================================= */
+
+  const fetchBrands = useCallback(async () => {
+    try {
+      const response = await axios.get(api('/api/v1/brands'), authConfig())
+
+      const data = response?.data
+
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.brands)
+          ? data.brands
+          : Array.isArray(data?.data)
+            ? data.data
+            : []
+
+      setBrands(list)
+    } catch (err) {
+      console.error('BRAND ERROR:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    getProduct()
+    fetchCategories()
+    fetchBrands()
+  }, [getProduct, fetchCategories, fetchBrands])
+
+  /* =========================================================
+     PRODUCT HELPERS
+  ========================================================= */
+
+  const variants = useMemo(() => {
+    if (!product) return []
+
+    return Array.isArray(product?.Variants)
+      ? product.Variants
+      : Array.isArray(product?.variants)
+        ? product.variants
+        : []
+  }, [product])
+
+  const currentQuantity = Number(product?.quantity || 0)
+
+  const totalVariantStock = useMemo(
+    () => variants.reduce((sum, variant) => sum + Number(variant?.quantity || 0), 0),
+    [variants],
+  )
+
+  const hasVariants = variants.length > 0
+
+  const profit = useMemo(() => {
+    return Number(formData.sellingPrice || 0) - Number(formData.costPrice || 0)
+  }, [formData.costPrice, formData.sellingPrice])
+
+  const margin = useMemo(() => {
+    const selling = Number(formData.sellingPrice || 0)
+
+    if (!selling) return 0
+
+    return (profit / selling) * 100
+  }, [profit, formData.sellingPrice])
+
+  /* =========================================================
+     FORM
+  ========================================================= */
+
+  const handleChange = (field, value) => {
+    setFormData((previous) => ({
+      ...previous,
+      [field]: value,
     }))
   }
 
@@ -217,12 +269,10 @@ const EditProduct = () => {
      IMAGE
   ========================================================= */
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0]
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0]
 
-    if (!file) {
-      return
-    }
+    if (!file) return
 
     if (!file.type.startsWith('image/')) {
       errorAlert('Please select a valid image file.')
@@ -230,164 +280,56 @@ const EditProduct = () => {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      errorAlert('Product image must not exceed 5MB.')
+      errorAlert('Image must not be larger than 5MB.')
       return
     }
 
-    /*
-     * Revoke previous object URL if it was a local preview.
-     */
-    if (imagePreview && imagePreview.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreview)
-    }
+    setImageFile(file)
 
     const preview = URL.createObjectURL(file)
-
-    setFormData((prev) => ({
-      ...prev,
-      image: file,
-    }))
-
     setImagePreview(preview)
   }
 
-  /* =========================================================
-     REMOVE NEW IMAGE
-     ========================================================= */
-
   const removeImage = () => {
-    if (imagePreview && imagePreview.startsWith('blob:')) {
-      URL.revokeObjectURL(imagePreview)
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      image: null,
-    }))
-
-    /*
-     * If there was an existing server image, return to it.
-     * Otherwise clear the preview.
-     */
-    setImagePreview(existingImage || null)
+    setImageFile(null)
+    setImagePreview('')
   }
 
   /* =========================================================
-     CALCULATIONS
+     SAVE PRODUCT
   ========================================================= */
 
-  const costPrice = Number(formData.costPrice || 0)
-  const sellingPrice = Number(formData.sellingPrice || 0)
-  const quantity = Number(formData.quantity || 0)
-  const reorderLevel = Number(formData.reorderLevel || 0)
+  const handleSubmit = async (event) => {
+    event.preventDefault()
 
-  const profit = sellingPrice - costPrice
+    setError('')
+    setSuccess('')
 
-  const profitMargin = costPrice > 0 ? ((profit / costPrice) * 100).toFixed(2) : '0.00'
+    const name = formData.name.trim()
 
-  const stockValue = costPrice * quantity
-  const potentialSales = sellingPrice * quantity
-  const potentialProfit = profit * quantity
-
-  const isLowStock = quantity > 0 && reorderLevel > 0 && quantity <= reorderLevel
-
-  /* =========================================================
-     FORM COMPLETION
-  ========================================================= */
-
-  const completion = useMemo(() => {
-    const fields = [
-      formData.name.trim(),
-      formData.sellingPrice,
-      formData.quantity !== '',
-      formData.reorderLevel !== '',
-    ]
-
-    const completed = fields.filter(Boolean).length
-
-    return Math.round((completed / fields.length) * 100)
-  }, [formData])
-
-  /* =========================================================
-     MONEY
-  ========================================================= */
-
-  const money = (value) =>
-    Number(value || 0).toLocaleString('en-NG', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-
-  /* =========================================================
-     VALIDATION
-  ========================================================= */
-
-  const validateForm = () => {
-    if (!formData.name.trim()) {
-      errorAlert('Product name is required.')
-      return false
+    if (!name) {
+      setError('Product name is required.')
+      return
     }
 
-    if (costPrice < 0) {
-      errorAlert('Cost price cannot be negative.')
-      return false
+    if (Number(formData.sellingPrice || 0) < 0) {
+      setError('Selling price cannot be negative.')
+      return
     }
 
-    if (sellingPrice <= 0) {
-      errorAlert('Please enter a valid selling price.')
-      return false
-    }
-
-    if (quantity < 0) {
-      errorAlert('Quantity cannot be negative.')
-      return false
-    }
-
-    if (reorderLevel < 0) {
-      errorAlert('Reorder level cannot be negative.')
-      return false
-    }
-
-    if (formData.sku.trim().length > 100) {
-      errorAlert('SKU is too long.')
-      return false
-    }
-
-    if (formData.barcode.trim().length > 100) {
-      errorAlert('Barcode is too long.')
-      return false
-    }
-
-    return true
-  }
-
-  /* =========================================================
-     UPDATE PRODUCT
-  ========================================================= */
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    if (!validateForm()) {
+    if (Number(formData.costPrice || 0) < 0) {
+      setError('Cost price cannot be negative.')
       return
     }
 
     try {
-      setLoading(true)
-
-      const token = localStorage.getItem('token')
+      setSaving(true)
 
       const payload = new FormData()
 
-      payload.append('name', formData.name.trim())
-
-      if (formData.sku.trim()) {
-        payload.append('sku', formData.sku.trim())
-      }
-
-      if (formData.barcode.trim()) {
-        payload.append('barcode', formData.barcode.trim())
-      }
+      payload.append('name', name)
+      payload.append('sku', formData.sku.trim())
+      payload.append('barcode', formData.barcode.trim())
 
       if (formData.categoryId) {
         payload.append('categoryId', formData.categoryId)
@@ -397,1274 +339,1203 @@ const EditProduct = () => {
         payload.append('brandId', formData.brandId)
       }
 
-      payload.append('costPrice', costPrice)
-      payload.append('sellingPrice', sellingPrice)
-      payload.append('quantity', quantity)
-      payload.append('reorderLevel', reorderLevel)
+      payload.append('costPrice', Number(formData.costPrice || 0))
+
+      payload.append('sellingPrice', Number(formData.sellingPrice || 0))
+
+      payload.append('reorderLevel', Number(formData.reorderLevel || 0))
+
       payload.append('status', formData.status)
 
       /*
-       * Only send a new image when the user selected one.
-       * This prevents accidentally replacing an existing
-       * image with an empty value.
+       * IMPORTANT:
+       * quantity is intentionally NOT sent here.
+       *
+       * Stock changes must go through the stock adjustment
+       * endpoint so StockMovements remains accurate.
        */
-      if (formData.image) {
-        payload.append('image', formData.image)
+
+      if (imageFile) {
+        payload.append('image', imageFile)
       }
 
-      const response = await axios.put(`${API_URL}api/v1/products/${id}`, payload, {
+      const response = await axios.put(api(`/api/v1/products/${id}`), payload, {
+        ...authConfig(),
         headers: {
-          ...(token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : {}),
+          ...authConfig().headers,
+          'Content-Type': 'multipart/form-data',
         },
       })
 
-      successAlert(response?.data?.message || 'Product updated successfully.')
+      const updated = response?.data?.product || response?.data?.data || response?.data
 
-      navigate('/view-products')
-    } catch (error) {
-      console.error('Update product error:', error)
+      if (updated && typeof updated === 'object') {
+        setProduct((previous) => ({
+          ...previous,
+          ...updated,
+        }))
+      }
 
-      errorAlert(
-        error?.response?.data?.message ||
-          error?.response?.data?.error ||
-          'Failed to update product.',
-      )
+      setSuccess('Product updated successfully.')
+      successAlert('Product updated successfully.')
+
+      await getProduct()
+    } catch (err) {
+      console.error('UPDATE PRODUCT ERROR:', err)
+
+      const message = err?.response?.data?.message || 'Failed to update product.'
+
+      setError(message)
+      errorAlert(message)
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
   /* =========================================================
-     LOADING SCREEN
+     STOCK ADJUSTMENT
   ========================================================= */
 
-  if (fetching) {
+  const handleStockAdjustment = async (event) => {
+    event.preventDefault()
+
+    const quantity = Number(stockForm.quantity)
+
+    if (!Number.isFinite(quantity) || quantity === 0) {
+      errorAlert('Enter a valid stock quantity.')
+      return
+    }
+
+    if (!stockForm.reason.trim()) {
+      errorAlert('Please enter a reason for the stock adjustment.')
+      return
+    }
+
+    const newQuantity = currentQuantity + quantity
+
+    if (newQuantity < 0) {
+      errorAlert(`Stock cannot go below zero. Current stock is ${currentQuantity}.`)
+      return
+    }
+
+    try {
+      setStockSaving(true)
+      setError('')
+
+      /*
+       * Backend expects:
+       *
+       * {
+       *   quantity: 25,
+       *   reason: "Physical stock count",
+       *   notes: "..."
+       * }
+       *
+       * Positive = add
+       * Negative = remove
+       */
+
+      await axios.patch(
+        api(`/api/v1/stock/${id}`),
+        {
+          quantity,
+          reason: stockForm.reason.trim(),
+          notes: stockForm.notes.trim() || null,
+        },
+        authConfig(),
+      )
+
+      setStockForm({
+        quantity: '',
+        reason: '',
+        notes: '',
+      })
+
+      successAlert('Stock adjusted successfully.')
+
+      await getProduct()
+    } catch (err) {
+      console.error('STOCK ADJUSTMENT ERROR:', err)
+
+      const message = err?.response?.data?.message || 'Failed to adjust stock.'
+
+      setError(message)
+      errorAlert(message)
+    } finally {
+      setStockSaving(false)
+    }
+  }
+
+  /* =========================================================
+     VARIANT FORM
+  ========================================================= */
+
+  const resetVariantForm = () => {
+    setVariantForm({ ...emptyVariant })
+    setEditingVariantId(null)
+  }
+
+  const startEditVariant = (variant) => {
+    setEditingVariantId(variant.id)
+
+    setVariantForm({
+      id: variant.id,
+      size: variant.size || '',
+      color: variant.color || '',
+      sku: variant.sku || '',
+      barcode: variant.barcode || '',
+      costPrice: variant.costPrice ?? '',
+      sellingPrice: variant.sellingPrice ?? '',
+      quantity: Number(variant.quantity || 0),
+      reorderLevel: Number(variant.reorderLevel || 5),
+      image: null,
+      status: variant.status || 'active',
+    })
+
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: 'smooth',
+    })
+  }
+
+  const handleVariantChange = (field, value) => {
+    setVariantForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }))
+  }
+
+  /* =========================================================
+     ADD / UPDATE VARIANT
+  ========================================================= */
+
+  const saveVariant = async (event) => {
+    event.preventDefault()
+
+    if (!variantForm.size.trim() && !variantForm.color.trim()) {
+      errorAlert('Enter at least a size or color for the variant.')
+      return
+    }
+
+    if (Number(variantForm.sellingPrice || 0) < 0 || Number(variantForm.costPrice || 0) < 0) {
+      errorAlert('Prices cannot be negative.')
+      return
+    }
+
+    try {
+      setVariantSaving(true)
+
+      const payload = {
+        size: variantForm.size.trim() || null,
+        color: variantForm.color.trim() || null,
+        sku: variantForm.sku.trim() || null,
+        barcode: variantForm.barcode.trim() || null,
+        costPrice: Number(variantForm.costPrice || 0),
+        sellingPrice: Number(variantForm.sellingPrice || 0),
+        reorderLevel: Number(variantForm.reorderLevel || 0),
+        status: variantForm.status,
+      }
+
+      /*
+       * We deliberately DO NOT send quantity when editing
+       * a variant.
+       *
+       * Variant stock should eventually have its own
+       * StockMovement workflow.
+       */
+
+      if (editingVariantId) {
+        await axios.put(api(`/api/v1/products/variants/${editingVariantId}`), payload, authConfig())
+
+        successAlert('Variant updated successfully.')
+      } else {
+        await axios.post(api(`/api/v1/products/${id}/variants`), payload, authConfig())
+
+        successAlert('Variant added successfully.')
+      }
+
+      resetVariantForm()
+
+      await getProduct()
+    } catch (err) {
+      console.error('VARIANT ERROR:', err)
+
+      const message = err?.response?.data?.message || 'Unable to save variant.'
+
+      setError(message)
+      errorAlert(message)
+    } finally {
+      setVariantSaving(false)
+    }
+  }
+
+  /* =========================================================
+     DELETE VARIANT
+  ========================================================= */
+
+  const deleteVariant = async (variantId) => {
+    const confirmed = window.confirm(
+      'Delete this variant? This action should only be used when the variant is no longer required.',
+    )
+
+    if (!confirmed) return
+
+    try {
+      await axios.delete(api(`/api/v1/products/${id}/variants/${variantId}`), authConfig())
+
+      successAlert('Variant deleted successfully.')
+
+      await getProduct()
+    } catch (err) {
+      console.error('DELETE VARIANT ERROR:', err)
+
+      errorAlert(err?.response?.data?.message || 'Failed to delete variant.')
+    }
+  }
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
+  if (loading) {
     return (
-      <div
-        className="d-flex flex-column align-items-center justify-content-center"
-        style={{
-          minHeight: '65vh',
-          color: '#777',
-        }}
-      >
-        <div
-          style={{
-            width: '62px',
-            height: '62px',
-            borderRadius: '18px',
-            background: '#f5edcf',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: '15px',
-          }}
-        >
-          <CSpinner
-            style={{
-              color: '#b89120',
-            }}
-          />
+      <div className="d-flex justify-content-center align-items-center py-5">
+        <div className="text-center">
+          <CSpinner />
+          <div className="mt-3 text-body-secondary">Loading product...</div>
         </div>
-
-        <div
-          style={{
-            fontWeight: '700',
-            color: '#333',
-          }}
-        >
-          Loading product...
-        </div>
-
-        <small
-          style={{
-            color: '#999',
-            marginTop: '4px',
-          }}
-        >
-          Preparing product information
-        </small>
       </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <CContainer className="py-4">
+        <CAlert color="danger">Product could not be loaded.</CAlert>
+
+        <CButton color="dark" onClick={() => navigate('/products')}>
+          <CIcon icon={cilArrowLeft} className="me-2" />
+          Back to Products
+        </CButton>
+      </CContainer>
     )
   }
 
   return (
     <div
       style={{
-        minHeight: '100%',
-        background: '#f5f5f3',
-        paddingBottom: '40px',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #090909 0%, #111111 45%, #191919 100%)',
+        color: '#f5f5f5',
+        paddingBottom: 50,
       }}
     >
-      {/* =====================================================
-          PAGE HEADER
-      ====================================================== */}
+      <CContainer fluid className="px-3 px-lg-4 py-4">
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
 
-      <div
-        className="mb-4"
-        style={{
-          background: 'linear-gradient(135deg, #0b0b0b 0%, #171717 55%, #252525 100%)',
-          borderRadius: '20px',
-          padding: '30px',
-          color: '#fff',
-          boxShadow: '0 10px 35px rgba(0,0,0,0.14)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            width: '220px',
-            height: '220px',
-            borderRadius: '50%',
-            border: '1px solid rgba(212,175,55,0.12)',
-            right: '-70px',
-            top: '-100px',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            width: '140px',
-            height: '140px',
-            borderRadius: '50%',
-            border: '1px solid rgba(212,175,55,0.10)',
-            right: '80px',
-            bottom: '-80px',
-          }}
-        />
-
-        <CRow className="align-items-center position-relative">
-          <CCol lg={8}>
-            <div
-              className="mb-2"
+        <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+          <div>
+            <button
+              type="button"
+              onClick={() => navigate('/products')}
               style={{
+                border: 0,
+                background: 'transparent',
                 color: '#d4af37',
-                fontSize: '11px',
-                fontWeight: '800',
-                letterSpacing: '2px',
-                textTransform: 'uppercase',
+                padding: 0,
+                marginBottom: 10,
               }}
             >
-              ONISHAKARA GOLD • INVENTORY
-            </div>
+              <CIcon icon={cilArrowLeft} className="me-2" />
+              Back to Products
+            </button>
 
             <h2
-              className="mb-2"
+              className="mb-1"
               style={{
-                fontWeight: '800',
-                letterSpacing: '-0.7px',
-                fontSize: '28px',
+                fontWeight: 800,
+                letterSpacing: 0.4,
               }}
             >
               Edit Product
             </h2>
 
-            <p
-              className="mb-0"
-              style={{
-                color: '#b8b8b8',
-                fontSize: '14px',
-                maxWidth: '650px',
-              }}
-            >
-              Update product information, pricing, inventory and presentation.
-            </p>
-          </CCol>
+            <div style={{ color: '#999' }}>
+              Update product information, pricing, stock and variants.
+            </div>
+          </div>
 
-          <CCol lg={4} className="text-lg-end mt-4 mt-lg-0">
-            <div
-              className="d-inline-flex align-items-center"
-              style={{
-                padding: '10px 14px',
-                borderRadius: '12px',
-                background: 'rgba(212,175,55,0.10)',
-                border: '1px solid rgba(212,175,55,0.25)',
-                color: '#d4af37',
-              }}
-            >
-              <span
-                className="me-2"
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: '#d4af37',
-                }}
-              />
+          <CBadge
+            color={formData.status === 'active' ? 'success' : 'secondary'}
+            className="px-3 py-2"
+            style={{
+              fontSize: 13,
+              borderRadius: 20,
+            }}
+          >
+            {formData.status === 'active' ? 'ACTIVE PRODUCT' : 'INACTIVE PRODUCT'}
+          </CBadge>
+        </div>
 
-              <span
+        {error && (
+          <CAlert color="danger" dismissible onClose={() => setError('')}>
+            {error}
+          </CAlert>
+        )}
+
+        {success && (
+          <CAlert color="success" dismissible onClose={() => setSuccess('')}>
+            {success}
+          </CAlert>
+        )}
+
+        <CRow className="g-4">
+          {/* ===================================================
+              LEFT
+          =================================================== */}
+
+          <CCol lg={8}>
+            {/* PRODUCT INFORMATION */}
+
+            <CCard className="border-0 shadow-lg mb-4">
+              <CCardHeader
                 style={{
-                  fontSize: '12px',
-                  fontWeight: '700',
+                  background: '#151515',
+                  color: '#d4af37',
+                  borderBottom: '1px solid #292929',
+                  fontWeight: 700,
                 }}
               >
-                EDITING PRODUCT
-              </span>
-            </div>
-          </CCol>
-        </CRow>
-      </div>
-
-      <CForm onSubmit={handleSubmit}>
-        <CRow>
-          {/* =====================================================
-              LEFT SIDE
-          ====================================================== */}
-
-          <CCol xl={8}>
-            {/* =================================================
-                PRODUCT INFORMATION
-            ================================================== */}
-
-            <CCard className="mb-4 border-0" style={cardStyle}>
-              <CCardHeader className="border-0" style={headerStyle}>
-                <SectionHeader
-                  number="01"
-                  title="Product Information"
-                  description="Update the product identification and classification."
-                />
+                Product Information
               </CCardHeader>
 
-              <CCardBody style={bodyStyle}>
-                <CRow>
-                  <CCol md={8} className="mb-4">
-                    <FieldLabel required>Product Name</FieldLabel>
-
-                    <CFormInput
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter product name"
-                      required
-                      style={inputStyle}
-                    />
-                  </CCol>
-
-                  <CCol md={4} className="mb-4">
-                    <FieldLabel>Status</FieldLabel>
-
-                    <CFormSelect
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      style={inputStyle}
-                    >
-                      <option value="active">Active</option>
-
-                      <option value="inactive">Inactive</option>
-                    </CFormSelect>
-                  </CCol>
-
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel>SKU</FieldLabel>
-
-                    <CFormInput
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleChange}
-                      placeholder="Product SKU"
-                      autoComplete="off"
-                      style={inputStyle}
-                    />
-
-                    <small className="field-help">
-                      Keep your existing SKU unless you intentionally want to change it.
-                    </small>
-                  </CCol>
-
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel>Barcode</FieldLabel>
-
-                    <CInputGroup>
-                      <CInputGroupText
-                        style={{
-                          background: '#fafafa',
-                          border: '1px solid #e3e3df',
-                          color: '#777',
-                        }}
-                      >
-                        #
-                      </CInputGroupText>
+              <CCardBody
+                style={{
+                  background: '#111',
+                }}
+              >
+                <CForm onSubmit={handleSubmit}>
+                  <CRow className="g-3">
+                    <CCol md={12}>
+                      <CFormLabel>Product Name *</CFormLabel>
 
                       <CFormInput
-                        name="barcode"
-                        value={formData.barcode}
-                        onChange={handleChange}
-                        placeholder="Barcode"
-                        autoComplete="off"
-                        style={{
-                          ...inputStyle,
-                          borderRadius: '0 10px 10px 0',
-                        }}
-                      />
-                    </CInputGroup>
-                  </CCol>
-
-                  <CCol md={6} className="mb-4 mb-md-0">
-                    <FieldLabel>Category</FieldLabel>
-
-                    <CFormSelect
-                      name="categoryId"
-                      value={formData.categoryId}
-                      onChange={handleChange}
-                      disabled={loadingCategories}
-                      style={inputStyle}
-                    >
-                      <option value="">
-                        {loadingCategories ? 'Loading categories...' : 'Select category'}
-                      </option>
-
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </CFormSelect>
-                  </CCol>
-
-                  <CCol md={6}>
-                    <FieldLabel>Brand</FieldLabel>
-
-                    <CFormSelect
-                      name="brandId"
-                      value={formData.brandId}
-                      onChange={handleChange}
-                      disabled={loadingBrands}
-                      style={inputStyle}
-                    >
-                      <option value="">
-                        {loadingBrands ? 'Loading brands...' : 'Select brand'}
-                      </option>
-
-                      {brands.map((brand) => (
-                        <option key={brand.id} value={brand.id}>
-                          {brand.name}
-                        </option>
-                      ))}
-                    </CFormSelect>
-                  </CCol>
-                </CRow>
-              </CCardBody>
-            </CCard>
-
-            {/* =================================================
-                PRICING
-            ================================================== */}
-
-            <CCard className="mb-4 border-0" style={cardStyle}>
-              <CCardHeader className="border-0" style={headerStyle}>
-                <SectionHeader
-                  number="02"
-                  title="Pricing"
-                  description="Update product cost and retail selling price."
-                />
-              </CCardHeader>
-
-              <CCardBody style={bodyStyle}>
-                <CRow>
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel>Cost Price</FieldLabel>
-
-                    <CInputGroup>
-                      <CInputGroupText style={currencyStyle}>₦</CInputGroupText>
-
-                      <CFormInput
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        name="costPrice"
-                        value={formData.costPrice}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        style={{
-                          ...inputStyle,
-                          borderRadius: '0 10px 10px 0',
-                        }}
-                      />
-                    </CInputGroup>
-                  </CCol>
-
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel required>Selling Price</FieldLabel>
-
-                    <CInputGroup>
-                      <CInputGroupText
-                        style={{
-                          ...currencyStyle,
-                          background: '#111',
-                          color: '#d4af37',
-                          borderColor: '#111',
-                        }}
-                      >
-                        ₦
-                      </CInputGroupText>
-
-                      <CFormInput
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        name="sellingPrice"
-                        value={formData.sellingPrice}
-                        onChange={handleChange}
-                        placeholder="0.00"
+                        value={formData.name}
+                        onChange={(e) => handleChange('name', e.target.value)}
+                        placeholder="e.g. Premium Leather Handbag"
                         required
-                        style={{
-                          ...inputStyle,
-                          borderRadius: '0 10px 10px 0',
-                          fontWeight: '700',
-                        }}
                       />
-                    </CInputGroup>
-                  </CCol>
-                </CRow>
-
-                {/* PROFIT */}
-
-                <div
-                  style={{
-                    borderRadius: '15px',
-                    padding: '18px',
-                    background:
-                      profit >= 0 ? 'linear-gradient(135deg, #f7f4e8, #fffdf5)' : '#fff1f2',
-                    border: profit >= 0 ? '1px solid #eee2b6' : '1px solid #fecdd3',
-                  }}
-                >
-                  <CRow>
-                    <CCol sm={4} className="mb-3 mb-sm-0">
-                      <small className="metric-label">PROFIT / UNIT</small>
-
-                      <div
-                        style={{
-                          fontSize: '20px',
-                          fontWeight: '800',
-                          color: profit >= 0 ? '#92721b' : '#be123c',
-                        }}
-                      >
-                        ₦{money(profit)}
-                      </div>
                     </CCol>
 
-                    <CCol sm={4} className="mb-3 mb-sm-0">
-                      <small className="metric-label">PROFIT MARGIN</small>
+                    <CCol md={6}>
+                      <CFormLabel>SKU</CFormLabel>
 
-                      <div
-                        style={{
-                          fontSize: '20px',
-                          fontWeight: '800',
-                          color: profit >= 0 ? '#92721b' : '#be123c',
-                        }}
-                      >
-                        {profitMargin}%
-                      </div>
+                      <CFormInput
+                        value={formData.sku}
+                        onChange={(e) => handleChange('sku', e.target.value)}
+                        placeholder="ONI-HBG-001"
+                      />
                     </CCol>
 
-                    <CCol sm={4}>
-                      <small className="metric-label">POTENTIAL PROFIT</small>
+                    <CCol md={6}>
+                      <CFormLabel>Barcode</CFormLabel>
 
-                      <div
-                        style={{
-                          fontSize: '20px',
-                          fontWeight: '800',
-                          color: potentialProfit >= 0 ? '#166534' : '#be123c',
-                        }}
+                      <CFormInput
+                        value={formData.barcode}
+                        onChange={(e) => handleChange('barcode', e.target.value)}
+                        placeholder="Scan or enter barcode"
+                      />
+                    </CCol>
+
+                    <CCol md={6}>
+                      <CFormLabel>Category</CFormLabel>
+
+                      <CFormSelect
+                        value={formData.categoryId}
+                        onChange={(e) => handleChange('categoryId', e.target.value)}
                       >
-                        ₦{money(potentialProfit)}
-                      </div>
+                        <option value="">Select category</option>
+
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </CFormSelect>
+                    </CCol>
+
+                    <CCol md={6}>
+                      <CFormLabel>Brand</CFormLabel>
+
+                      <CFormSelect
+                        value={formData.brandId}
+                        onChange={(e) => handleChange('brandId', e.target.value)}
+                      >
+                        <option value="">Select brand</option>
+
+                        {brands.map((brand) => (
+                          <option key={brand.id} value={brand.id}>
+                            {brand.name}
+                          </option>
+                        ))}
+                      </CFormSelect>
+                    </CCol>
+
+                    <CCol md={6}>
+                      <CFormLabel>Status</CFormLabel>
+
+                      <CFormSelect
+                        value={formData.status}
+                        onChange={(e) => handleChange('status', e.target.value)}
+                      >
+                        <option value="active">Active</option>
+
+                        <option value="inactive">Inactive</option>
+                      </CFormSelect>
                     </CCol>
                   </CRow>
-                </div>
+
+                  {/* PRICING */}
+
+                  <div className="mt-4 pt-4 border-top border-secondary">
+                    <h5 className="mb-3">
+                      <span style={{ color: '#d4af37' }}>Pricing</span>
+                    </h5>
+
+                    <CRow className="g-3">
+                      <CCol md={6}>
+                        <CFormLabel>Cost Price</CFormLabel>
+
+                        <CInputGroup>
+                          <CInputGroupText>₦</CInputGroupText>
+
+                          <CFormInput
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.costPrice}
+                            onChange={(e) => handleChange('costPrice', e.target.value)}
+                          />
+                        </CInputGroup>
+                      </CCol>
+
+                      <CCol md={6}>
+                        <CFormLabel>Selling Price</CFormLabel>
+
+                        <CInputGroup>
+                          <CInputGroupText>₦</CInputGroupText>
+
+                          <CFormInput
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.sellingPrice}
+                            onChange={(e) => handleChange('sellingPrice', e.target.value)}
+                          />
+                        </CInputGroup>
+                      </CCol>
+
+                      <CCol md={6}>
+                        <div
+                          className="p-3 rounded"
+                          style={{
+                            background: '#181818',
+                            border: '1px solid #2d2d2d',
+                          }}
+                        >
+                          <small className="text-body-secondary">Expected Profit</small>
+
+                          <div className="fs-4 fw-bold" style={{ color: '#d4af37' }}>
+                            ₦{money(profit)}
+                          </div>
+                        </div>
+                      </CCol>
+
+                      <CCol md={6}>
+                        <div
+                          className="p-3 rounded"
+                          style={{
+                            background: '#181818',
+                            border: '1px solid #2d2d2d',
+                          }}
+                        >
+                          <small className="text-body-secondary">Profit Margin</small>
+
+                          <div className="fs-4 fw-bold">{margin.toFixed(1)}%</div>
+                        </div>
+                      </CCol>
+                    </CRow>
+                  </div>
+
+                  {/* SAVE */}
+
+                  <div className="d-flex justify-content-end gap-2 mt-4">
+                    <CButton
+                      type="button"
+                      color="secondary"
+                      variant="outline"
+                      onClick={() => navigate('/products')}
+                    >
+                      <CIcon icon={cilX} className="me-2" />
+                      Cancel
+                    </CButton>
+
+                    <CButton
+                      type="submit"
+                      style={{
+                        background: 'linear-gradient(135deg,#d4af37,#f3d77a)',
+                        color: '#111',
+                        border: 0,
+                        fontWeight: 700,
+                      }}
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CIcon icon={cilSave} className="me-2" />
+                          Save Product
+                        </>
+                      )}
+                    </CButton>
+                  </div>
+                </CForm>
               </CCardBody>
             </CCard>
 
             {/* =================================================
                 INVENTORY
-            ================================================== */}
+            ================================================= */}
 
-            <CCard className="mb-4 border-0" style={cardStyle}>
-              <CCardHeader className="border-0" style={headerStyle}>
-                <SectionHeader
-                  number="03"
-                  title="Inventory"
-                  description="Update current stock and reorder protection."
-                />
+            <CCard className="border-0 shadow-lg mb-4">
+              <CCardHeader
+                style={{
+                  background: '#151515',
+                  color: '#d4af37',
+                  borderBottom: '1px solid #292929',
+                  fontWeight: 700,
+                }}
+              >
+                Inventory Management
               </CCardHeader>
 
-              <CCardBody style={bodyStyle}>
-                <CRow>
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel required>Current Quantity</FieldLabel>
+              <CCardBody style={{ background: '#111' }}>
+                <CRow className="g-3 mb-4">
+                  <CCol md={4}>
+                    <div className="p-3 rounded bg-dark">
+                      <small className="text-body-secondary">Current Stock</small>
 
-                    <CFormInput
-                      type="number"
-                      min="0"
-                      step="1"
-                      name="quantity"
-                      value={formData.quantity}
-                      onChange={handleChange}
-                      required
-                      style={inputStyle}
-                    />
-
-                    <small className="field-help">
-                      This updates the product's current stored quantity.
-                    </small>
+                      <div className="fs-3 fw-bold">{currentQuantity}</div>
+                    </div>
                   </CCol>
 
-                  <CCol md={6} className="mb-4">
-                    <FieldLabel required>Reorder Level</FieldLabel>
+                  <CCol md={4}>
+                    <div className="p-3 rounded bg-dark">
+                      <small className="text-body-secondary">Reorder Level</small>
 
-                    <CFormInput
-                      type="number"
-                      min="0"
-                      step="1"
-                      name="reorderLevel"
-                      value={formData.reorderLevel}
-                      onChange={handleChange}
-                      required
-                      style={inputStyle}
-                    />
+                      <div className="fs-3 fw-bold">{Number(formData.reorderLevel || 0)}</div>
+                    </div>
+                  </CCol>
+
+                  <CCol md={4}>
+                    <div className="p-3 rounded bg-dark">
+                      <small className="text-body-secondary">Stock Status</small>
+
+                      <div className="mt-2">
+                        {currentQuantity <= 0 ? (
+                          <CBadge color="danger">OUT OF STOCK</CBadge>
+                        ) : currentQuantity <= Number(formData.reorderLevel || 0) ? (
+                          <CBadge color="warning">LOW STOCK</CBadge>
+                        ) : (
+                          <CBadge color="success">IN STOCK</CBadge>
+                        )}
+                      </div>
+                    </div>
                   </CCol>
                 </CRow>
 
-                {isLowStock && (
-                  <CAlert
-                    className="border-0 mb-3"
-                    style={{
-                      borderRadius: '12px',
-                      background: '#fff7ed',
-                      color: '#9a3412',
-                    }}
-                  >
-                    <strong>Low-stock warning:</strong> Current quantity is at or below the reorder
-                    level.
-                  </CAlert>
-                )}
-
                 <div
+                  className="p-4 rounded"
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                    gap: '10px',
+                    background: '#181818',
+                    border: '1px solid #303030',
                   }}
                 >
-                  <InventoryMetric label="STOCK VALUE" value={`₦${money(stockValue)}`} />
+                  <h6 className="fw-bold mb-1">Adjust Stock</h6>
 
-                  <InventoryMetric label="POTENTIAL SALES" value={`₦${money(potentialSales)}`} />
+                  <p className="text-body-secondary small mb-4">
+                    Positive quantity adds stock. Negative quantity removes stock. Every adjustment
+                    is recorded in stock history.
+                  </p>
 
-                  <InventoryMetric label="POTENTIAL PROFIT" value={`₦${money(potentialProfit)}`} />
+                  <CForm onSubmit={handleStockAdjustment}>
+                    <CRow className="g-3">
+                      <CCol md={4}>
+                        <CFormLabel>Quantity Adjustment</CFormLabel>
+
+                        <CFormInput
+                          type="number"
+                          step="1"
+                          value={stockForm.quantity}
+                          onChange={(e) =>
+                            setStockForm((previous) => ({
+                              ...previous,
+                              quantity: e.target.value,
+                            }))
+                          }
+                          placeholder="+10 or -5"
+                        />
+                      </CCol>
+
+                      <CCol md={8}>
+                        <CFormLabel>Reason *</CFormLabel>
+
+                        <CFormInput
+                          value={stockForm.reason}
+                          onChange={(e) =>
+                            setStockForm((previous) => ({
+                              ...previous,
+                              reason: e.target.value,
+                            }))
+                          }
+                          placeholder="Purchase received, physical count, damaged stock..."
+                        />
+                      </CCol>
+
+                      <CCol md={12}>
+                        <CFormLabel>Notes</CFormLabel>
+
+                        <CFormTextarea
+                          rows={2}
+                          value={stockForm.notes}
+                          onChange={(e) =>
+                            setStockForm((previous) => ({
+                              ...previous,
+                              notes: e.target.value,
+                            }))
+                          }
+                          placeholder="Optional notes..."
+                        />
+                      </CCol>
+
+                      <CCol md={12}>
+                        <CButton
+                          type="submit"
+                          disabled={stockSaving}
+                          style={{
+                            background: 'linear-gradient(135deg,#d4af37,#f3d77a)',
+                            color: '#111',
+                            border: 0,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {stockSaving ? (
+                            <>
+                              <CSpinner size="sm" className="me-2" />
+                              Updating...
+                            </>
+                          ) : (
+                            <>
+                              <CIcon icon={cilReload} className="me-2" />
+                              Adjust Stock
+                            </>
+                          )}
+                        </CButton>
+                      </CCol>
+                    </CRow>
+                  </CForm>
+                </div>
+
+                <div
+                  className="mt-3 p-3 rounded"
+                  style={{
+                    background: '#201d14',
+                    border: '1px solid #5d4d20',
+                  }}
+                >
+                  <small style={{ color: '#d4af37' }}>
+                    <strong>Important:</strong> Do not change product quantity from the normal
+                    product edit form. Use this inventory adjustment workflow so stock movements
+                    remain traceable.
+                  </small>
                 </div>
               </CCardBody>
             </CCard>
 
             {/* =================================================
-                PRODUCT IMAGE
-            ================================================== */}
+                VARIANTS
+            ================================================= */}
 
-            <CCard className="mb-4 border-0" style={cardStyle}>
-              <CCardHeader className="border-0" style={headerStyle}>
-                <SectionHeader
-                  number="04"
-                  title="Product Image"
-                  description="Update the image shown throughout the POS."
-                />
+            <CCard className="border-0 shadow-lg mb-4">
+              <CCardHeader
+                style={{
+                  background: '#151515',
+                  color: '#d4af37',
+                  borderBottom: '1px solid #292929',
+                  fontWeight: 700,
+                }}
+              >
+                Product Variants
               </CCardHeader>
 
-              <CCardBody style={bodyStyle}>
+              <CCardBody style={{ background: '#111' }}>
+                {hasVariants ? (
+                  <div className="table-responsive mb-4">
+                    <CTable
+                      hover
+                      responsive
+                      align="middle"
+                      className="mb-0"
+                      style={{
+                        color: '#eee',
+                        background: '#151515',
+                      }}
+                    >
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell>Size</CTableHeaderCell>
+
+                          <CTableHeaderCell>Color</CTableHeaderCell>
+
+                          <CTableHeaderCell>SKU</CTableHeaderCell>
+
+                          <CTableHeaderCell>Price</CTableHeaderCell>
+
+                          <CTableHeaderCell>Stock</CTableHeaderCell>
+
+                          <CTableHeaderCell>Status</CTableHeaderCell>
+
+                          <CTableHeaderCell>Actions</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+
+                      <CTableBody>
+                        {variants.map((variant) => (
+                          <CTableRow key={variant.id}>
+                            <CTableDataCell>{variant.size || '—'}</CTableDataCell>
+
+                            <CTableDataCell>{variant.color || '—'}</CTableDataCell>
+
+                            <CTableDataCell>{variant.sku || '—'}</CTableDataCell>
+
+                            <CTableDataCell>₦{money(variant.sellingPrice)}</CTableDataCell>
+
+                            <CTableDataCell>
+                              <strong>{Number(variant.quantity || 0)}</strong>
+                            </CTableDataCell>
+
+                            <CTableDataCell>
+                              <CBadge color={variant.status === 'active' ? 'success' : 'secondary'}>
+                                {variant.status || 'active'}
+                              </CBadge>
+                            </CTableDataCell>
+
+                            <CTableDataCell>
+                              <div className="d-flex gap-1">
+                                <CButton
+                                  size="sm"
+                                  color="warning"
+                                  variant="outline"
+                                  onClick={() => startEditVariant(variant)}
+                                >
+                                  Edit
+                                </CButton>
+
+                                <CButton
+                                  size="sm"
+                                  color="danger"
+                                  variant="outline"
+                                  onClick={() => deleteVariant(variant.id)}
+                                >
+                                  <CIcon icon={cilTrash} />
+                                </CButton>
+                              </div>
+                            </CTableDataCell>
+                          </CTableRow>
+                        ))}
+                      </CTableBody>
+                    </CTable>
+                  </div>
+                ) : (
+                  <div
+                    className="text-center py-4 mb-4 rounded"
+                    style={{
+                      background: '#181818',
+                      border: '1px dashed #3b3b3b',
+                    }}
+                  >
+                    <div
+                      className="mb-2"
+                      style={{
+                        color: '#d4af37',
+                        fontSize: 28,
+                      }}
+                    >
+                      +
+                    </div>
+
+                    <div className="fw-bold">No variants yet</div>
+
+                    <div className="text-body-secondary small">
+                      Add sizes, colors or other product variations below.
+                    </div>
+                  </div>
+                )}
+
+                {/* VARIANT FORM */}
+
                 <div
+                  className="p-4 rounded"
                   style={{
-                    border: '1.5px dashed #d6d6d2',
-                    borderRadius: '16px',
-                    padding: imagePreview ? '14px' : '32px',
-                    textAlign: 'center',
-                    background: '#fafaf8',
+                    background: '#181818',
+                    border: '1px solid #303030',
                   }}
                 >
-                  {imagePreview ? (
-                    <>
-                      <div
-                        style={{
-                          position: 'relative',
-                          maxWidth: '320px',
-                          margin: '0 auto 15px',
-                        }}
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <h6 className="mb-1 fw-bold">
+                        {editingVariantId ? 'Edit Variant' : 'Add Variant'}
+                      </h6>
+
+                      <small className="text-body-secondary">
+                        {editingVariantId
+                          ? 'Update this product variant.'
+                          : 'Create a size/color variant for this product.'}
+                      </small>
+                    </div>
+
+                    {editingVariantId && (
+                      <CButton
+                        size="sm"
+                        color="secondary"
+                        variant="outline"
+                        onClick={resetVariantForm}
                       >
-                        <img
-                          src={imagePreview}
-                          alt={formData.name || 'Product'}
-                          style={{
-                            width: '100%',
-                            height: '290px',
-                            objectFit: 'cover',
-                            borderRadius: '14px',
-                            display: 'block',
-                          }}
+                        Cancel Edit
+                      </CButton>
+                    )}
+                  </div>
+
+                  <CForm onSubmit={saveVariant}>
+                    <CRow className="g-3">
+                      <CCol md={6}>
+                        <CFormLabel>Size</CFormLabel>
+
+                        <CFormInput
+                          value={variantForm.size}
+                          onChange={(e) => handleVariantChange('size', e.target.value)}
+                          placeholder="S, M, L, XL, 42..."
                         />
+                      </CCol>
 
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          style={{
-                            position: 'absolute',
-                            top: '10px',
-                            right: '10px',
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            border: 'none',
-                            background: 'rgba(0,0,0,0.8)',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            fontSize: '18px',
-                          }}
-                          title="Remove selected image"
+                      <CCol md={6}>
+                        <CFormLabel>Color</CFormLabel>
+
+                        <CFormInput
+                          value={variantForm.color}
+                          onChange={(e) => handleVariantChange('color', e.target.value)}
+                          placeholder="Black, Gold, Brown..."
+                        />
+                      </CCol>
+
+                      <CCol md={6}>
+                        <CFormLabel>Variant SKU</CFormLabel>
+
+                        <CFormInput
+                          value={variantForm.sku}
+                          onChange={(e) => handleVariantChange('sku', e.target.value)}
+                          placeholder="ONI-HBG-001-BLK"
+                        />
+                      </CCol>
+
+                      <CCol md={6}>
+                        <CFormLabel>Variant Barcode</CFormLabel>
+
+                        <CFormInput
+                          value={variantForm.barcode}
+                          onChange={(e) => handleVariantChange('barcode', e.target.value)}
+                          placeholder="Variant barcode"
+                        />
+                      </CCol>
+
+                      <CCol md={4}>
+                        <CFormLabel>Cost Price</CFormLabel>
+
+                        <CFormInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variantForm.costPrice}
+                          onChange={(e) => handleVariantChange('costPrice', e.target.value)}
+                        />
+                      </CCol>
+
+                      <CCol md={4}>
+                        <CFormLabel>Selling Price</CFormLabel>
+
+                        <CFormInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variantForm.sellingPrice}
+                          onChange={(e) => handleVariantChange('sellingPrice', e.target.value)}
+                        />
+                      </CCol>
+
+                      <CCol md={4}>
+                        <CFormLabel>Reorder Level</CFormLabel>
+
+                        <CFormInput
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={variantForm.reorderLevel}
+                          onChange={(e) => handleVariantChange('reorderLevel', e.target.value)}
+                        />
+                      </CCol>
+
+                      <CCol md={6}>
+                        <CFormLabel>Status</CFormLabel>
+
+                        <CFormSelect
+                          value={variantForm.status}
+                          onChange={(e) => handleVariantChange('status', e.target.value)}
                         >
-                          ×
-                        </button>
-                      </div>
+                          <option value="active">Active</option>
 
-                      <div
-                        style={{
-                          fontWeight: '700',
-                          color: '#333',
-                          marginBottom: '4px',
-                        }}
-                      >
-                        {formData.image ? formData.image.name : 'Current product image'}
-                      </div>
+                          <option value="inactive">Inactive</option>
+                        </CFormSelect>
+                      </CCol>
 
-                      <small
-                        style={{
-                          color: '#999',
-                        }}
-                      >
-                        Choose another image below to replace it.
-                      </small>
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        style={{
-                          width: '58px',
-                          height: '58px',
-                          borderRadius: '16px',
-                          background: '#f5edcf',
-                          color: '#a68424',
-                          margin: '0 auto 15px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '25px',
-                          fontWeight: '700',
-                        }}
-                      >
-                        +
-                      </div>
-
-                      <div
-                        style={{
-                          fontWeight: '700',
-                          color: '#303030',
-                          marginBottom: '5px',
-                        }}
-                      >
-                        No product image
-                      </div>
-
-                      <small
-                        className="d-block mb-4"
-                        style={{
-                          color: '#999',
-                        }}
-                      >
-                        Upload a PNG, JPG or JPEG image.
-                      </small>
-                    </>
-                  )}
-
-                  <CFormInput
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
-                    onChange={handleImageChange}
-                    style={{
-                      maxWidth: '420px',
-                      margin: '0 auto',
-                      borderRadius: '10px',
-                      background: '#fff',
-                    }}
-                  />
+                      <CCol md={12}>
+                        <div className="d-flex justify-content-end">
+                          <CButton
+                            type="submit"
+                            disabled={variantSaving}
+                            style={{
+                              background: 'linear-gradient(135deg,#d4af37,#f3d77a)',
+                              color: '#111',
+                              border: 0,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {variantSaving ? (
+                              <>
+                                <CSpinner size="sm" className="me-2" />
+                                Saving...
+                              </>
+                            ) : editingVariantId ? (
+                              <>
+                                <CIcon icon={cilCheckAlt} className="me-2" />
+                                Update Variant
+                              </>
+                            ) : (
+                              <>
+                                <CIcon icon={cilPlus} className="me-2" />
+                                Add Variant
+                              </>
+                            )}
+                          </CButton>
+                        </div>
+                      </CCol>
+                    </CRow>
+                  </CForm>
                 </div>
               </CCardBody>
             </CCard>
           </CCol>
 
-          {/* =====================================================
-              RIGHT SUMMARY
-          ====================================================== */}
+          {/* ===================================================
+              RIGHT SIDEBAR
+          =================================================== */}
 
-          <CCol xl={4}>
-            <div
-              style={{
-                position: 'sticky',
-                top: '20px',
-              }}
-            >
-              <CCard
-                className="border-0 mb-4"
+          <CCol lg={4}>
+            {/* IMAGE */}
+
+            <CCard className="border-0 shadow-lg mb-4">
+              <CCardHeader
                 style={{
-                  borderRadius: '18px',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+                  background: '#151515',
+                  color: '#d4af37',
+                  borderBottom: '1px solid #292929',
+                  fontWeight: 700,
                 }}
               >
-                <CCardHeader
-                  className="border-0"
+                Product Image
+              </CCardHeader>
+
+              <CCardBody
+                style={{
+                  background: '#111',
+                }}
+              >
+                <div
+                  className="rounded d-flex justify-content-center align-items-center overflow-hidden mb-3"
                   style={{
-                    background: 'linear-gradient(145deg, #0b0b0b, #1d1d1d)',
-                    color: '#fff',
-                    padding: '22px',
+                    height: 300,
+                    background: '#181818',
+                    border: '1px dashed #3a3a3a',
                   }}
                 >
-                  <div
-                    style={{
-                      color: '#d4af37',
-                      fontSize: '10px',
-                      letterSpacing: '1.8px',
-                      fontWeight: '800',
-                    }}
-                  >
-                    ONISHAKARA GOLD
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: '19px',
-                      fontWeight: '800',
-                      marginTop: '5px',
-                    }}
-                  >
-                    Product Overview
-                  </div>
-
-                  <div
-                    className="mt-3"
-                    style={{
-                      height: '5px',
-                      borderRadius: '20px',
-                      background: '#292929',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
+                  {imagePreview ? (
+                    <img
+                      src={imagePreview}
+                      alt={formData.name}
                       style={{
+                        width: '100%',
                         height: '100%',
-                        width: `${completion}%`,
-                        background: 'linear-gradient(90deg, #b78b19, #e5c65a)',
-                        borderRadius: '20px',
-                        transition: 'width .25s ease',
+                        objectFit: 'contain',
                       }}
                     />
-                  </div>
+                  ) : (
+                    <div className="text-center text-body-secondary">
+                      <CIcon icon={cilImage} size="4xl" />
 
-                  <small
-                    className="d-block mt-2"
-                    style={{
-                      color: '#a8a8a8',
-                    }}
-                  >
-                    {completion}% setup completed
-                  </small>
-                </CCardHeader>
+                      <div className="mt-2">No product image</div>
+                    </div>
+                  )}
+                </div>
 
-                <CCardBody
-                  style={{
-                    padding: '20px',
-                  }}
-                >
-                  {/* IMAGE */}
-
+                <CFormLabel htmlFor="product-image" className="w-100">
                   <div
-                    className="mb-4"
+                    className="p-3 rounded text-center"
                     style={{
-                      borderRadius: '15px',
-                      background: '#f7f7f5',
-                      overflow: 'hidden',
-                      border: '1px solid #ededeb',
+                      cursor: 'pointer',
+                      border: '1px solid #444',
+                      background: '#181818',
                     }}
                   >
-                    {imagePreview ? (
-                      <img
-                        src={imagePreview}
-                        alt={formData.name || 'Product'}
-                        style={{
-                          width: '100%',
-                          height: '210px',
-                          objectFit: 'cover',
-                          display: 'block',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          height: '170px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#b7b7b2',
-                          fontSize: '13px',
-                        }}
-                      >
-                        No product image
-                      </div>
-                    )}
-
-                    <div
+                    <CIcon
+                      icon={cilCloudUpload}
+                      className="me-2"
                       style={{
-                        padding: '14px',
+                        color: '#d4af37',
                       }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '16px',
-                          fontWeight: '800',
-                          color: '#181818',
-                        }}
-                      >
-                        {formData.name || 'Product Name'}
-                      </div>
-
-                      <div
-                        className="mt-1"
-                        style={{
-                          fontSize: '12px',
-                          color: '#888',
-                        }}
-                      >
-                        {formData.sku || 'SKU not specified'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* STATUS */}
-
-                  <div className="mb-4">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <span
-                        style={{
-                          color: '#888',
-                          fontSize: '12px',
-                        }}
-                      >
-                        Product Status
-                      </span>
-
-                      <CBadge
-                        style={{
-                          background: formData.status === 'active' ? '#ecfdf3' : '#f3f4f6',
-                          color: formData.status === 'active' ? '#15803d' : '#6b7280',
-                          borderRadius: '20px',
-                          padding: '7px 11px',
-                        }}
-                      >
-                        {formData.status === 'active' ? 'Active' : 'Inactive'}
-                      </CBadge>
-                    </div>
-                  </div>
-
-                  {/* SUMMARY */}
-
-                  <div
-                    style={{
-                      background: '#f8f8f6',
-                      borderRadius: '14px',
-                      padding: '16px',
-                    }}
-                  >
-                    <SummaryRow
-                      label="Category"
-                      value={
-                        categories.find((item) => String(item.id) === String(formData.categoryId))
-                          ?.name || 'Not selected'
-                      }
                     />
-
-                    <SummaryRow
-                      label="Brand"
-                      value={
-                        brands.find((item) => String(item.id) === String(formData.brandId))?.name ||
-                        'Not selected'
-                      }
-                    />
-
-                    <SummaryRow label="Quantity" value={`${quantity.toLocaleString()} units`} />
-
-                    <SummaryRow
-                      label="Reorder Level"
-                      value={`${reorderLevel.toLocaleString()} units`}
-                    />
-
-                    <SummaryRow label="Selling Price" value={`₦${money(sellingPrice)}`} />
-
-                    <SummaryRow label="Profit / Unit" value={`₦${money(profit)}`} />
-
-                    <SummaryRow label="Margin" value={`${profitMargin}%`} last />
+                    Replace Image
                   </div>
+                </CFormLabel>
 
-                  {/* UPDATE BUTTON */}
+                <input
+                  id="product-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  hidden
+                />
 
-                  <CButton
-                    type="submit"
-                    disabled={loading}
-                    className="w-100 mt-4 border-0"
-                    style={{
-                      minHeight: '53px',
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #e4c04f 0%, #b89120 100%)',
-                      color: '#111',
-                      fontWeight: '800',
-                      boxShadow: '0 8px 20px rgba(184,145,32,0.22)',
-                    }}
-                  >
-                    {loading ? (
-                      <>
-                        <CSpinner size="sm" className="me-2" />
-                        Updating Product...
-                      </>
-                    ) : (
-                      <>
-                        <span
-                          className="me-2"
-                          style={{
-                            fontSize: '17px',
-                          }}
-                        >
-                          ✓
-                        </span>
-                        Update Product
-                      </>
-                    )}
-                  </CButton>
-
-                  {/* CANCEL */}
-
+                {imagePreview && (
                   <CButton
                     type="button"
+                    color="danger"
                     variant="outline"
                     className="w-100 mt-2"
-                    disabled={loading}
-                    onClick={() => navigate('/view-products')}
-                    style={{
-                      minHeight: '45px',
-                      borderRadius: '11px',
-                      border: '1px solid #deded9',
-                      color: '#555',
-                      background: '#fff',
-                      fontWeight: '600',
-                    }}
+                    onClick={removeImage}
                   >
-                    Cancel
+                    <CIcon icon={cilTrash} className="me-2" />
+                    Remove Preview
                   </CButton>
+                )}
 
-                  <div
-                    className="text-center mt-3"
-                    style={{
-                      fontSize: '11px',
-                      color: '#999',
-                      lineHeight: '1.5',
-                    }}
-                  >
-                    Changes will be saved to the Onishakara Gold inventory.
-                  </div>
-                </CCardBody>
-              </CCard>
+                <small className="text-body-secondary d-block mt-3">
+                  Recommended: JPG, PNG or WEBP. Maximum 5MB.
+                </small>
+              </CCardBody>
+            </CCard>
 
-              {/* INVENTORY INFO */}
+            {/* PRODUCT OVERVIEW */}
 
-              <CCard
-                className="border-0"
+            <CCard className="border-0 shadow-lg mb-4">
+              <CCardHeader
                 style={{
-                  borderRadius: '16px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                  background: '#151515',
+                  color: '#d4af37',
+                  borderBottom: '1px solid #292929',
+                  fontWeight: 700,
                 }}
               >
-                <CCardBody
-                  style={{
-                    padding: '18px',
-                  }}
-                >
-                  <div className="d-flex align-items-center mb-3">
-                    <div
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '10px',
-                        background: '#f6efd5',
-                        color: '#9b791c',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: '800',
-                        marginRight: '10px',
-                      }}
-                    >
-                      i
-                    </div>
+                Product Overview
+              </CCardHeader>
 
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: '800',
-                          color: '#222',
-                          fontSize: '13px',
-                        }}
-                      >
-                        Inventory Note
-                      </div>
+              <CCardBody style={{ background: '#111' }}>
+                <div className="mb-3">
+                  <small className="text-body-secondary">Product</small>
 
-                      <small
-                        style={{
-                          color: '#999',
-                        }}
-                      >
-                        Stock management
-                      </small>
-                    </div>
-                  </div>
+                  <div className="fw-bold fs-5">{formData.name || 'Unnamed Product'}</div>
+                </div>
+
+                <div className="mb-3">
+                  <small className="text-body-secondary">SKU</small>
+
+                  <div>{formData.sku || 'Not assigned'}</div>
+                </div>
+
+                <div className="mb-3">
+                  <small className="text-body-secondary">Current Stock</small>
 
                   <div
+                    className="fw-bold fs-4"
                     style={{
-                      fontSize: '12px',
-                      color: '#777',
-                      lineHeight: '1.6',
+                      color: currentQuantity <= 0 ? '#dc3545' : '#d4af37',
                     }}
                   >
-                    For detailed stock additions, reductions and stock history, use the dedicated
-                    inventory adjustment workflow rather than changing quantities repeatedly here.
+                    {currentQuantity}
                   </div>
-                </CCardBody>
-              </CCard>
+                </div>
+
+                <div className="mb-3">
+                  <small className="text-body-secondary">Variants</small>
+
+                  <div className="fw-bold">{variants.length}</div>
+                </div>
+
+                {hasVariants && (
+                  <div className="mb-3">
+                    <small className="text-body-secondary">Total Variant Stock</small>
+
+                    <div className="fw-bold">{totalVariantStock}</div>
+                  </div>
+                )}
+
+                <div>
+                  <small className="text-body-secondary">Selling Price</small>
+
+                  <div className="fw-bold fs-4" style={{ color: '#d4af37' }}>
+                    ₦{money(formData.sellingPrice)}
+                  </div>
+                </div>
+              </CCardBody>
+            </CCard>
+
+            {/* INVENTORY RULE */}
+
+            <div
+              className="rounded p-4"
+              style={{
+                background: 'linear-gradient(135deg,#211c0d,#161616)',
+                border: '1px solid #5a4a1d',
+              }}
+            >
+              <div className="fw-bold mb-2" style={{ color: '#d4af37' }}>
+                Inventory Control
+              </div>
+
+              <div className="small" style={{ color: '#bbb' }}>
+                Purchases, sales, returns and manual stock adjustments should be recorded through
+                the inventory system. This keeps the stock history accurate.
+              </div>
             </div>
           </CCol>
         </CRow>
-      </CForm>
-
-      {/* =======================================================
-          PAGE STYLES
-      ======================================================== */}
-
-      <style>
-        {`
-          .field-help {
-            display: block;
-            margin-top: 7px;
-            color: #999;
-            font-size: 11px;
-          }
-
-          .metric-label {
-            display: block;
-            color: #9a8a54;
-            font-size: 9px;
-            font-weight: 800;
-            letter-spacing: 1px;
-            margin-bottom: 3px;
-          }
-
-          @media (max-width: 1199px) {
-            .position-relative {
-              position: relative !important;
-            }
-          }
-        `}
-      </style>
+      </CContainer>
     </div>
   )
-}
-
-/* ============================================================
-   SECTION HEADER
-============================================================ */
-
-const SectionHeader = ({ number, title, description }) => (
-  <div className="d-flex align-items-center">
-    <div
-      className="me-3 d-flex align-items-center justify-content-center"
-      style={{
-        width: '42px',
-        height: '42px',
-        minWidth: '42px',
-        borderRadius: '12px',
-        background: 'linear-gradient(145deg, #faf2d5, #f5e9bd)',
-        color: '#9a791e',
-        fontSize: '12px',
-        fontWeight: '800',
-      }}
-    >
-      {number}
-    </div>
-
-    <div>
-      <div
-        style={{
-          fontSize: '16px',
-          fontWeight: '800',
-          color: '#171717',
-        }}
-      >
-        {title}
-      </div>
-
-      <small
-        style={{
-          color: '#999',
-          fontSize: '12px',
-        }}
-      >
-        {description}
-      </small>
-    </div>
-  </div>
-)
-
-/* ============================================================
-   FIELD LABEL
-============================================================ */
-
-const FieldLabel = ({ children, required = false }) => (
-  <CFormLabel
-    style={{
-      fontWeight: '700',
-      color: '#383838',
-      fontSize: '12px',
-      marginBottom: '8px',
-    }}
-  >
-    {children}
-
-    {required && (
-      <span
-        style={{
-          color: '#b89120',
-          marginLeft: '4px',
-        }}
-      >
-        *
-      </span>
-    )}
-  </CFormLabel>
-)
-
-/* ============================================================
-   INVENTORY METRIC
-============================================================ */
-
-const InventoryMetric = ({ label, value }) => (
-  <div
-    style={{
-      background: '#f8f8f6',
-      borderRadius: '12px',
-      padding: '13px',
-      border: '1px solid #eeeeeb',
-    }}
-  >
-    <small
-      style={{
-        display: 'block',
-        color: '#999',
-        fontSize: '9px',
-        fontWeight: '800',
-        letterSpacing: '.7px',
-        marginBottom: '4px',
-      }}
-    >
-      {label}
-    </small>
-
-    <strong
-      style={{
-        color: '#242424',
-        fontSize: '13px',
-      }}
-    >
-      {value}
-    </strong>
-  </div>
-)
-
-/* ============================================================
-   SUMMARY ROW
-============================================================ */
-
-const SummaryRow = ({ label, value, last = false }) => (
-  <div
-    className="d-flex justify-content-between"
-    style={{
-      padding: '9px 0',
-      borderBottom: last ? 'none' : '1px solid #e9e9e5',
-      gap: '15px',
-    }}
-  >
-    <span
-      style={{
-        color: '#888',
-        fontSize: '11px',
-      }}
-    >
-      {label}
-    </span>
-
-    <strong
-      style={{
-        color: '#242424',
-        fontSize: '11px',
-        textAlign: 'right',
-        maxWidth: '170px',
-        wordBreak: 'break-word',
-      }}
-    >
-      {value}
-    </strong>
-  </div>
-)
-
-/* ============================================================
-   SHARED STYLES
-============================================================ */
-
-const cardStyle = {
-  borderRadius: '18px',
-  boxShadow: '0 5px 25px rgba(0,0,0,0.05)',
-  overflow: 'hidden',
-}
-
-const headerStyle = {
-  background: '#fff',
-  padding: '22px 24px 16px',
-}
-
-const bodyStyle = {
-  padding: '10px 24px 28px',
-}
-
-const inputStyle = {
-  minHeight: '47px',
-  borderRadius: '10px',
-  border: '1px solid #e3e3df',
-  background: '#fff',
-  color: '#222',
-  fontSize: '13px',
-}
-
-const currencyStyle = {
-  background: '#fafaf8',
-  border: '1px solid #e3e3df',
-  color: '#777',
-  fontWeight: '700',
 }
 
 export default EditProduct

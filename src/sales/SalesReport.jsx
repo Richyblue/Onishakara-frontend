@@ -22,9 +22,9 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilChart, cilCloudDownload, cilReload } from '@coreui/icons'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
 
-const API_URL = `${API_ROOT}/api/v1`
+const API_URL = `${API_ROOT}api/v1`
 
 const formatMoney = (value) =>
   `₦${Number(value || 0).toLocaleString('en-NG', {

@@ -23,9 +23,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 import '../categories/Category.css'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
 
-const API_URL = `${API_ROOT}/api/v1`
+const API_URL = `${API_ROOT}api/v1`
 
 const EditBrand = () => {
   const { id } = useParams()
