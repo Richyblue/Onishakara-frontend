@@ -25,7 +25,11 @@ const EditProduct = React.lazy(() => import('./product/editProduct'))
 const RecycleBin = React.lazy(() => import('./product/RecycleBin'))
 
 const Categories = React.lazy(() => import('./categories/Category'))
+const AddCategories = React.lazy(() => import('./categories/AddCategory'))
+const EditCategories = React.lazy(() => import('./categories/EditCategory'))
 const Brands = React.lazy(() => import('./brands/Brand'))
+const AddBrands = React.lazy(() => import('./brands/AddBrand'))
+const EditBrands = React.lazy(() => import('./brands/EditBrand'))
 
 // ============================================================
 // CUSTOMERS
@@ -189,6 +193,22 @@ export const routes = [
     roles: ['admin', 'manager'],
   },
 
+  {
+    path: '/Addcategories',
+    name: 'Add Categories',
+    element: AddCategories,
+    roles: ['admin', 'manager'],
+  },
+
+  {
+    path: '/Editcategories',
+    name: 'Edit Categories',
+    element: EditCategories,
+    roles: ['admin', 'manager'],
+  },
+
+
+
   // ----------------------------------------------------------
   // BRANDS
   // ----------------------------------------------------------
@@ -197,6 +217,20 @@ export const routes = [
     path: '/brands',
     name: 'Brands',
     element: Brands,
+    roles: ['admin', 'manager'],
+  },
+
+  {
+    path: '/Addbrands',
+    name: 'Add Brands',
+    element: AddBrands,
+    roles: ['admin', 'manager'],
+  },
+
+  {
+    path: '/Editbrands',
+    name: 'Edit Brands',
+    element: EditBrands,
     roles: ['admin', 'manager'],
   },
   // ----------------------------------------------------------

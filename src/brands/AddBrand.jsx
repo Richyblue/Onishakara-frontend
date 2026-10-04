@@ -86,7 +86,7 @@ const AddBrand = () => {
   return (
     <div className="category-form-page">
       <div className="category-form-header">
-        <CButton className="back-btn" onClick={() => navigate('/brands')}>
+        <CButton className="back-btn" onClick={() => navigate('/Addbrands')}>
           <CIcon icon={cilArrowLeft} className="me-2" />
           Back
         </CButton>
