@@ -85,7 +85,7 @@ const AddCategory = () => {
   return (
     <div className="category-form-page">
       <div className="category-form-header">
-        <CButton className="back-btn" onClick={() => navigate('/Addcategories')}>
+        <CButton className="back-btn" onClick={() => navigate('/categories')}>
           <CIcon icon={cilArrowLeft} className="me-2" />
           Back
         </CButton>

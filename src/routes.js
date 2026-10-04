@@ -201,7 +201,7 @@ export const routes = [
   },
 
   {
-    path: '/Editcategories',
+    path: '/Editcategories/:id',
     name: 'Edit Categories',
     element: EditCategories,
     roles: ['admin', 'manager'],
@@ -228,7 +228,7 @@ export const routes = [
   },
 
   {
-    path: '/Editbrands',
+    path: '/Editbrands/:id',
     name: 'Edit Brands',
     element: EditBrands,
     roles: ['admin', 'manager'],

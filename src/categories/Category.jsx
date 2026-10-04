@@ -243,7 +243,7 @@ const Category = () => {
 
               <p>Create your first product category to start organizing your inventory.</p>
 
-              <CButton className="gold-primary-btn" onClick={() => navigate('/categories/add')}>
+              <CButton className="gold-primary-btn" onClick={() => navigate('/Addcategory')}>
                 <CIcon icon={cilPlus} className="me-2" />
                 Create Category
               </CButton>
@@ -315,7 +315,7 @@ const Category = () => {
                           <CButton
                             size="sm"
                             className="action-edit"
-                            onClick={() => navigate(`/categories/edit/${category.id}`)}
+                            onClick={() => navigate(`/Editcategories/${category.id}`)}
                           >
                             <CIcon icon={cilPencil} />
                           </CButton>

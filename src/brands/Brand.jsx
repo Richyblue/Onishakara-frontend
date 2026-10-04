@@ -160,7 +160,7 @@ const Brand = () => {
           <p>Manage the brands available in your fashion inventory.</p>
         </div>
 
-        <CButton className="gold-primary-btn" onClick={() => navigate('/brands/add')}>
+        <CButton className="gold-primary-btn" onClick={() => navigate('/Addbrands')}>
           <CIcon icon={cilPlus} className="me-2" />
           Add Brand
         </CButton>
@@ -311,7 +311,7 @@ const Brand = () => {
                           <CButton
                             size="sm"
                             className="action-edit"
-                            onClick={() => navigate(`/brands/edit/${brand.id}`)}
+                            onClick={() => navigate(`/Editbrands/${brand.id}`)}
                           >
                             <CIcon icon={cilPencil} />
                           </CButton>
