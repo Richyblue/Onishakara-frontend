@@ -46,8 +46,8 @@ import './Dashboard.css'
 // API
 // ============================================================
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-const API_URL = `${API_ROOT}/`
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
+const API_URL = `${API_ROOT}`
 
 // ============================================================
 // COMPONENT
