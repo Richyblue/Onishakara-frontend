@@ -160,7 +160,7 @@ const Category = () => {
           <p>Organize your fashion products into clear product categories.</p>
         </div>
 
-        <CButton className="gold-primary-btn" onClick={() => navigate('/categories/add')}>
+        <CButton className="gold-primary-btn" onClick={() => navigate('/Addcategories')}>
           <CIcon icon={cilPlus} className="me-2" />
           Add Category
         </CButton>
