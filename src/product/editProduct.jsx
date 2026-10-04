@@ -42,7 +42,7 @@ import {
 
 import CIcon from '@coreui/icons-react'
 
-import { successAlert, errorAlert } from '../../utils/alerts'
+import { successAlert, errorAlert } from '../utils/alerts'
 
 const API_URL = import.meta.env.VITE_BACKEND_URL
 
