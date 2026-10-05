@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
+
 import {
   CModal,
   CModalHeader,
@@ -15,7 +16,17 @@ import {
 const ReceiptModal = ({ show, onHide, sale }) => {
   const receiptRef = useRef(null)
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL
+  // ==========================================================
+  // API
+  // ==========================================================
+
+  const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+
+  const API_URL = `${API_ROOT}/api/v1`
+
+  // ==========================================================
+  // STATE
+  // ==========================================================
 
   const [settings, setSettings] = useState({})
   const [loadingSettings, setLoadingSettings] = useState(false)
@@ -36,7 +47,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
 
         const token = localStorage.getItem('token')
 
-        const response = await axios.get(`${API_URL}api/v1/settings`, {
+        const response = await axios.get(`${API_URL}/settings`, {
           headers: token
             ? {
                 Authorization: `Bearer ${token}`,
@@ -44,10 +55,10 @@ const ReceiptModal = ({ show, onHide, sale }) => {
             : {},
         })
 
-        console.log('Settings API response:', response.data)
+        console.log('Receipt Settings API response:', response.data)
 
         if (mounted) {
-          setSettings(response.data?.settings || {})
+          setSettings(response.data?.settings || response.data?.data || {})
         }
       } catch (error) {
         console.error('Failed to fetch settings:', error.response?.data || error.message)
@@ -77,7 +88,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
   // SETTINGS VALUES
   // ==========================================================
 
-  const companyName = settings?.companyName || 'GLAMOUR UNISEX SALON'
+  const companyName = settings?.companyName || 'ONISHAKARA GOLD FASHION STORE'
 
   const companyPhone = settings?.companyPhone || ''
 
@@ -94,39 +105,298 @@ const ReceiptModal = ({ show, onHide, sale }) => {
   // ==========================================================
 
   const formatAmount = (amount) => {
-    return `${currencySymbol}${Number(amount || 0).toLocaleString()}`
+    const value = Number(amount || 0)
+
+    return `${currencySymbol}${value.toLocaleString('en-NG', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`
   }
+
+  // ==========================================================
+  // CUSTOMER NAME
+  // ==========================================================
+
+  const getCustomerName = () => {
+    if (!sale) {
+      return 'Walk-in Customer'
+    }
+
+    if (typeof sale.customer === 'string') {
+      return sale.customer
+    }
+
+    if (sale.customer?.name) {
+      return sale.customer.name
+    }
+
+    if (sale.customer?.fullname) {
+      return sale.customer.fullname
+    }
+
+    if (sale.customer?.fullName) {
+      return sale.customer.fullName
+    }
+
+    if (sale.Customer?.name) {
+      return sale.Customer.name
+    }
+
+    if (sale.Customer?.fullname) {
+      return sale.Customer.fullname
+    }
+
+    if (sale.Customer?.fullName) {
+      return sale.Customer.fullName
+    }
+
+    return 'Walk-in Customer'
+  }
+
+  // ==========================================================
+  // CASHIER NAME
+  // ==========================================================
+
+  const getCashierName = () => {
+    if (!sale) {
+      return 'Admin'
+    }
+
+    if (typeof sale.recordedBy === 'string') {
+      return sale.recordedBy
+    }
+
+    if (sale.recordedBy?.fullname) {
+      return sale.recordedBy.fullname
+    }
+
+    if (sale.recordedBy?.fullName) {
+      return sale.recordedBy.fullName
+    }
+
+    if (sale.RecordedBy?.fullname) {
+      return sale.RecordedBy.fullname
+    }
+
+    if (sale.RecordedBy?.fullName) {
+      return sale.RecordedBy.fullName
+    }
+
+    if (sale.cashier?.fullname) {
+      return sale.cashier.fullname
+    }
+
+    if (sale.cashier?.fullName) {
+      return sale.cashier.fullName
+    }
+
+    if (sale.cashier?.name) {
+      return sale.cashier.name
+    }
+
+    return 'Admin'
+  }
+
+  // ==========================================================
+  // PRODUCT NAME
+  // ==========================================================
+
+  const getItemName = (item) => {
+    if (!item) {
+      return '-'
+    }
+
+    // Already-normalized POS item
+    if (item.name) {
+      let name = item.name
+
+      const size = item.size
+      const color = item.color
+
+      const variantParts = [size, color].filter(Boolean)
+
+      if (variantParts.length && !name.includes(variantParts.join(' / '))) {
+        name += ` (${variantParts.join(' / ')})`
+      }
+
+      return name
+    }
+
+    // Backend productName
+    if (item.productName) {
+      let name = item.productName
+
+      const variant = item.ProductVariant || item.productVariant || null
+
+      if (variant) {
+        const variantParts = [variant.size, variant.color].filter(Boolean)
+
+        if (variantParts.length) {
+          name += ` (${variantParts.join(' / ')})`
+        }
+      }
+
+      return name
+    }
+
+    // Sequelize Product
+    if (item.Product?.name) {
+      let name = item.Product.name
+
+      const variant = item.ProductVariant || item.productVariant || null
+
+      if (variant) {
+        const variantParts = [variant.size, variant.color].filter(Boolean)
+
+        if (variantParts.length) {
+          name += ` (${variantParts.join(' / ')})`
+        }
+      }
+
+      return name
+    }
+
+    // Lowercase Sequelize-style object
+    if (item.product?.name) {
+      let name = item.product.name
+
+      const variant =
+        item.ProductVariant || item.productVariant || item.product?.ProductVariant || null
+
+      if (variant) {
+        const variantParts = [variant.size, variant.color].filter(Boolean)
+
+        if (variantParts.length) {
+          name += ` (${variantParts.join(' / ')})`
+        }
+      }
+
+      return name
+    }
+
+    return '-'
+  }
+
+  // ==========================================================
+  // ITEM QUANTITY
+  // ==========================================================
+
+  const getItemQuantity = (item) => {
+    const quantity = Number(item?.quantity ?? item?.qty ?? 1)
+
+    return Number.isFinite(quantity) ? quantity : 1
+  }
+
+  // ==========================================================
+  // ITEM PRICE
+  // ==========================================================
+
+  const getItemPrice = (item) => {
+    const price = Number(
+      item?.price ?? item?.sellingPrice ?? item?.unitPrice ?? item?.Product?.sellingPrice ?? 0,
+    )
+
+    return Number.isFinite(price) ? price : 0
+  }
+
+  // ==========================================================
+  // ITEM AMOUNT
+  // ==========================================================
+
+  const getItemAmount = (item) => {
+    const quantity = getItemQuantity(item)
+
+    const subtotal = Number(item?.subtotal ?? item?.total ?? item?.totalAmount)
+
+    if (Number.isFinite(subtotal) && subtotal !== 0) {
+      return subtotal
+    }
+
+    return getItemPrice(item) * quantity
+  }
+
+  // ==========================================================
+  // GET RECEIPT ITEMS
+  // ==========================================================
+
+  const getReceiptItems = () => {
+    if (Array.isArray(sale?.items)) {
+      return sale.items
+    }
+
+    if (Array.isArray(sale?.SaleItems)) {
+      return sale.SaleItems
+    }
+
+    if (Array.isArray(sale?.saleItems)) {
+      return sale.saleItems
+    }
+
+    return []
+  }
+
+  // ==========================================================
+  // RECEIPT ITEMS
+  // ==========================================================
+
+  const receiptItems = getReceiptItems()
 
   // ==========================================================
   // GENERATE SINGLE RECEIPT
   // ==========================================================
 
   const generateReceiptContent = () => {
-    const items = sale?.items || []
+    const items = receiptItems
 
     return `
       <div class="receipt">
 
         <div class="company-header">
+
           <h2>${companyName}</h2>
 
-          ${companyAddress ? `<p class="address">${companyAddress}</p>` : ''}
+          ${
+            companyAddress
+              ? `
+                <p class="address">
+                  ${companyAddress}
+                </p>
+              `
+              : ''
+          }
 
-          ${companyPhone ? `<p>Tel: ${companyPhone}</p>` : ''}
+          ${
+            companyPhone
+              ? `
+                <p>
+                  Tel: ${companyPhone}
+                </p>
+              `
+              : ''
+          }
 
-          ${companyEmail ? `<p>${companyEmail}</p>` : ''}
+          ${
+            companyEmail
+              ? `
+                <p>
+                  ${companyEmail}
+                </p>
+              `
+              : ''
+          }
+
         </div>
 
         <div class="separator"></div>
 
         <p>
           <strong>Receipt No:</strong>
-          ${sale?.receiptNumber || sale?.id || '-'}
+          ${sale?.receiptNumber || sale?.receiptNo || sale?.id || '-'}
         </p>
 
         <p>
           <strong>Customer:</strong>
-          ${sale?.customer || 'Walk-in Customer'}
+          ${getCustomerName()}
         </p>
 
         <p>
@@ -136,76 +406,129 @@ const ReceiptModal = ({ show, onHide, sale }) => {
 
         <p>
           <strong>Cashier:</strong>
-          ${sale?.recordedBy || 'Admin'}
+          ${getCashierName()}
         </p>
+
+        ${
+          sale?.paymentMethod
+            ? `
+              <p>
+                <strong>Payment:</strong>
+                ${String(sale.paymentMethod).toUpperCase()}
+              </p>
+            `
+            : ''
+        }
 
         <div class="separator"></div>
 
         <table>
+
           <thead>
+
             <tr>
-              <th align="left">Item</th>
-              <th align="center">Qty</th>
-              <th align="right">Amount</th>
+              <th align="left">
+                Item
+              </th>
+
+              <th align="center">
+                Qty
+              </th>
+
+              <th align="right">
+                Amount
+              </th>
             </tr>
+
           </thead>
 
           <tbody>
-            ${items
-              .map((item) => {
-                const quantity = item.quantity || item.qty || 1
 
-                const amount = item.subtotal || 0
+            ${
+              items.length
+                ? items
+                    .map((item) => {
+                      const quantity = getItemQuantity(item)
 
-                return `
-                  <tr>
-                    <td>
-                      ${item.name || '-'}
-                    </td>
+                      const amount = getItemAmount(item)
 
-                    <td align="center">
-                      ${quantity}
-                    </td>
+                      return `
+                          <tr>
 
-                    <td align="right">
-                      ${formatAmount(amount)}
-                    </td>
-                  </tr>
-                `
-              })
-              .join('')}
+                            <td>
+                              ${getItemName(item)}
+                            </td>
+
+                            <td align="center">
+                              ${quantity}
+                            </td>
+
+                            <td align="right">
+                              ${formatAmount(amount)}
+                            </td>
+
+                          </tr>
+                        `
+                    })
+                    .join('')
+                : `
+                    <tr>
+                      <td
+                        colspan="3"
+                        align="center"
+                      >
+                        No items
+                      </td>
+                    </tr>
+                  `
+            }
+
           </tbody>
+
         </table>
 
         <div class="separator"></div>
 
         <div class="total-row">
-          <span>Subtotal:</span>
+
+          <span>
+            Subtotal:
+          </span>
 
           <strong>
-            ${formatAmount(sale?.subtotal || sale?.totalAmount)}
+            ${formatAmount(sale?.subtotal ?? sale?.totalAmount ?? 0)}
           </strong>
+
         </div>
 
         <div class="total-row">
-          <span>Discount:</span>
+
+          <span>
+            Discount:
+          </span>
 
           <strong>
-            ${formatAmount(sale?.discount)}
+            ${formatAmount(sale?.discount || 0)}
           </strong>
+
         </div>
 
         <div class="total-row grand-total">
-          <span>TOTAL:</span>
+
+          <span>
+            TOTAL:
+          </span>
 
           <strong>
-            ${formatAmount(sale?.totalAmount)}
+            ${formatAmount(sale?.totalAmount || 0)}
           </strong>
+
         </div>
 
         <div class="separator"></div>
 
         <div class="receipt-footer">
+
           <p>
             ${receiptFooter}
           </p>
@@ -213,6 +536,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
           <p>
             Please Visit Again
           </p>
+
         </div>
 
       </div>
@@ -233,7 +557,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
       // CHECK ELECTRON
       // ======================================================
 
-      if (!window.electron?.printReceipt) {
+      if (!window.electron || !window.electron.printReceipt) {
         alert('Electron printing is not available.')
 
         return
@@ -255,6 +579,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
         <!DOCTYPE html>
 
         <html>
+
           <head>
 
             <meta charset="UTF-8" />
@@ -280,8 +605,8 @@ const ReceiptModal = ({ show, onHide, sale }) => {
 
               body {
                 width: 60mm;
-                 margin: 0;
-                  padding: 5px;
+                margin: 0;
+                padding: 5px;
                 font-family: monospace;
                 font-size: 8px;
                 color: #000;
@@ -330,6 +655,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
               td {
                 padding: 2px 0;
                 word-break: break-word;
+                vertical-align: top;
               }
 
               th:first-child,
@@ -374,7 +700,9 @@ const ReceiptModal = ({ show, onHide, sale }) => {
           </head>
 
           <body>
+
             ${receipt}
+
           </body>
 
         </html>
@@ -413,11 +741,23 @@ const ReceiptModal = ({ show, onHide, sale }) => {
   }
 
   // ==========================================================
-  // NO SALE
+  // NO SALE / RECEIPT PREPARING
   // ==========================================================
 
   if (!sale) {
-    return null
+    if (!show) {
+      return null
+    }
+
+    return (
+      <CModal visible={show} onClose={printing ? undefined : onHide} alignment="center">
+        <CModalBody className="text-center py-5">
+          <CSpinner />
+
+          <p className="mt-3 mb-0">Preparing receipt...</p>
+        </CModalBody>
+      </CModal>
+    )
   }
 
   // ==========================================================
@@ -456,6 +796,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     fontSize: '9px',
                     fontFamily: 'monospace',
                     color: '#000',
+                    background: '#fff',
                   }}
                 >
                   {/* COMPANY */}
@@ -516,11 +857,12 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                   {/* RECEIPT INFORMATION */}
 
                   <p>
-                    <strong>Receipt No:</strong> {sale.receiptNumber || sale.id}
+                    <strong>Receipt No:</strong>{' '}
+                    {sale.receiptNumber || sale.receiptNo || sale.id || '-'}
                   </p>
 
                   <p>
-                    <strong>Customer:</strong> {sale.customer || 'Walk-in Customer'}
+                    <strong>Customer:</strong> {getCustomerName()}
                   </p>
 
                   <p>
@@ -529,8 +871,14 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                   </p>
 
                   <p>
-                    <strong>Cashier:</strong> {sale.recordedBy || 'Admin'}
+                    <strong>Cashier:</strong> {getCashierName()}
                   </p>
+
+                  {sale.paymentMethod && (
+                    <p>
+                      <strong>Payment:</strong> {String(sale.paymentMethod).toUpperCase()}
+                    </p>
+                  )}
 
                   <hr
                     style={{
@@ -544,6 +892,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     style={{
                       width: '100%',
                       fontSize: '9px',
+                      borderCollapse: 'collapse',
                     }}
                   >
                     <thead>
@@ -557,15 +906,23 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     </thead>
 
                     <tbody>
-                      {sale.items?.map((item, index) => (
-                        <tr key={index}>
-                          <td>{item.name}</td>
+                      {receiptItems.length ? (
+                        receiptItems.map((item, index) => (
+                          <tr key={item.id || index}>
+                            <td>{getItemName(item)}</td>
 
-                          <td align="center">{item.quantity || item.qty || 1}</td>
+                            <td align="center">{getItemQuantity(item)}</td>
 
-                          <td align="right">{formatAmount(item.subtotal)}</td>
+                            <td align="right">{formatAmount(getItemAmount(item))}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="3" align="center">
+                            No items
+                          </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
 
@@ -587,7 +944,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     >
                       <span>Subtotal:</span>
 
-                      <strong>{formatAmount(sale.subtotal || sale.totalAmount)}</strong>
+                      <strong>{formatAmount(sale.subtotal ?? sale.totalAmount ?? 0)}</strong>
                     </p>
 
                     <p
@@ -599,7 +956,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     >
                       <span>Discount:</span>
 
-                      <strong>{formatAmount(sale.discount)}</strong>
+                      <strong>{formatAmount(sale.discount || 0)}</strong>
                     </p>
 
                     <p
@@ -607,12 +964,13 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         fontSize: '12px',
+                        fontWeight: 'bold',
                         margin: '4px 0',
                       }}
                     >
                       <span>TOTAL:</span>
 
-                      <strong>{formatAmount(sale.totalAmount)}</strong>
+                      <strong>{formatAmount(sale.totalAmount || 0)}</strong>
                     </p>
                   </div>
 

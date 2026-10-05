@@ -300,68 +300,224 @@ const POSPage = () => {
     window.electronAPI?.updateCustomerDisplay?.({ cart, subtotal, total, customer })
   }, [cart, subtotal, total, customer])
   const complete = async (pd) => {
-    if (!cart.length) return alert('Cart is empty')
+    if (!cart.length) {
+      alert('Cart is empty')
+      return
+    }
+
+    if (processing) return
+
     setProcessing(true)
+
     const id = localId()
+
     const payload = {
       localSaleId: id,
       queuedAt: new Date().toISOString(),
+
       customerId: customer?.id || null,
+
       items: cart.map((i) => ({
         productId: Number(i.productId || i.id),
         variantId: i.variantId ? Number(i.variantId) : null,
         quantity: Number(i.quantity),
         price: Number(i.price),
         subtotal: Number(i.price) * Number(i.quantity),
+
+        // Keep receipt information
+        name: i.name,
+        sku: i.sku || '',
+        size: i.size || null,
+        color: i.color || null,
       })),
-      discount: Number(discount),
+
+      discount: Number(discount || 0),
+
       paymentMethod: pd?.paymentMethod || paymentMethod,
+
       note: pd?.note?.trim() || null,
-      standTag: pd?.standTag?.trim() || null,
-      cardNumber: pd?.cardNumber?.trim() || null,
+
       usePoints: Boolean(usePoints),
       redeemPoints: Number(redeemPoints || 0),
+
       subtotal: Number(subtotal),
       totalAmount: Number(total),
     }
+
     try {
-      const r = await axios.post(`${API_URL}/sales`, payload, { ...cfg(), timeout: 12000 })
-      setSale(r.data?.sale || r.data)
+      console.log('POS SALE PAYLOAD:', payload)
+
+      const r = await axios.post(`${API_URL}/sales`, payload, {
+        ...cfg(),
+        timeout: 12000,
+      })
+
+      console.log('POS SALE RESPONSE:', r.data)
+
+      /*
+       * IMPORTANT:
+       * Backend may return:
+       *
+       * { sale: {...} }
+       * or
+       * { data: {...} }
+       * or
+       * the sale object directly.
+       */
+      const serverSale = r?.data?.sale || r?.data?.data || r?.data
+
+      if (!serverSale) {
+        throw new Error('Sale was completed but no receipt data was returned.')
+      }
+
+      /*
+       * Make sure ReceiptModal receives the items.
+       */
+      const receiptSale = {
+        ...serverSale,
+
+        id: serverSale.id || null,
+
+        receiptNumber: serverSale.receiptNumber || serverSale.receiptNo || `ONI-${Date.now()}`,
+
+        localSaleId: serverSale.localSaleId || id,
+
+        subtotal: Number(serverSale.subtotal ?? subtotal),
+
+        discount: Number(serverSale.discount ?? discount ?? 0),
+
+        totalAmount: Number(serverSale.totalAmount ?? total),
+
+        paymentMethod: serverSale.paymentMethod || payload.paymentMethod,
+
+        customer: serverSale.customer || serverSale.Customer || customer || null,
+
+        Customer: serverSale.Customer || serverSale.customer || customer || null,
+
+        /*
+         * Backend names
+         */
+        SaleItems: Array.isArray(serverSale.SaleItems)
+          ? serverSale.SaleItems
+          : Array.isArray(serverSale.saleItems)
+            ? serverSale.saleItems
+            : Array.isArray(serverSale.items)
+              ? serverSale.items
+              : payload.items,
+
+        /*
+         * Also provide lowercase items.
+         */
+        items: Array.isArray(serverSale.items)
+          ? serverSale.items
+          : Array.isArray(serverSale.SaleItems)
+            ? serverSale.SaleItems
+            : Array.isArray(serverSale.saleItems)
+              ? serverSale.saleItems
+              : payload.items,
+      }
+
+      console.log('RECEIPT DATA:', receiptSale)
+
+      /*
+       * Set the SALE FIRST.
+       */
+      setSale(receiptSale)
+
+      /*
+       * Close payment.
+       */
       setShowPayment(false)
+
+      /*
+       * IMPORTANT:
+       * Open receipt only after receiptSale has been prepared.
+       */
       setShowReceipt(true)
+
+      /*
+       * Now clear the POS.
+       */
       clearPOS()
-      refreshQueue()
+
+      await refreshQueue()
+
+      /*
+       * Refresh products so stock immediately reflects
+       * the completed sale.
+       */
+      load()
     } catch (e) {
+      console.error('COMPLETE SALE ERROR:', e)
+
+      /*
+       * Server responded with an actual error.
+       * Do NOT show a fake receipt.
+       */
       if (e?.response) {
-        alert(e.response?.data?.message || 'Failed to complete sale')
+        alert(e.response?.data?.message || e.response?.data?.error || 'Failed to complete sale')
+
         return
       }
+
+      /*
+       * No server response = network/offline situation.
+       */
       try {
-        await window.electronAPI.offlineAddQueue('sale', payload)
+        await window.electronAPI?.offlineAddQueue?.('sale', payload)
+
         const off = {
           id,
+
           localSaleId: id,
+
           receiptNumber: `OFF-${id.replace('LOCAL-', '')}`,
+
           createdAt: new Date().toISOString(),
+
           offline: true,
+
           status: 'pending_sync',
+
           customer,
+
           Customer: customer,
+
           subtotal,
+
           discount,
+
           totalAmount: total,
+
           paymentMethod: payload.paymentMethod,
+
           note: payload.note,
+
           items: cart,
-          SaleItems: cart.map((i) => ({ ...i, subtotal: Number(i.price) * Number(i.quantity) })),
+
+          SaleItems: cart.map((i) => ({
+            ...i,
+
+            subtotal: Number(i.price) * Number(i.quantity),
+          })),
         }
+
+        console.log('OFFLINE RECEIPT:', off)
+
         setSale(off)
+
         setShowPayment(false)
+
         setShowReceipt(true)
+
         clearPOS()
-        refreshQueue()
+
+        await refreshQueue()
+
         alert('Server unavailable. Sale saved offline and will synchronize automatically.')
       } catch (q) {
+        console.error('OFFLINE SAVE ERROR:', q)
+
         alert('Sale could not be completed or saved offline.')
       }
     } finally {
@@ -1485,8 +1641,11 @@ const POSPage = () => {
       <ReceiptModal
         show={showReceipt}
         settings={settings}
-        onHide={() => setShowReceipt(false)}
         sale={sale}
+        onHide={() => {
+          setShowReceipt(false)
+          setSale(null)
+        }}
       />
       <HoldSaleModal
         show={showHold}
