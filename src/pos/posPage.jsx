@@ -660,6 +660,36 @@ const POSPage = () => {
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [cart])
+
+  const filteredProducts = useMemo(() => {
+    const list = Array.isArray(products) ? products : []
+
+    const keyword = String(search || '')
+      .trim()
+      .toLowerCase()
+
+    return list.filter((product) => {
+      const matchesSearch =
+        !keyword ||
+        String(product?.name || '')
+          .toLowerCase()
+          .includes(keyword) ||
+        String(product?.sku || '')
+          .toLowerCase()
+          .includes(keyword) ||
+        String(product?.barcode || '')
+          .toLowerCase()
+          .includes(keyword)
+
+      const matchesCategory =
+        category === 'all' ||
+        category === '' ||
+        category === null ||
+        String(product?.categoryId || '') === String(category)
+
+      return matchesSearch && matchesCategory
+    })
+  }, [products, search, category])
   const categoryTabs = [
     { id: 'all', name: 'ALL PRODUCTS' },
     ...categories.map((c) => ({ id: c.id, name: c.name })),
