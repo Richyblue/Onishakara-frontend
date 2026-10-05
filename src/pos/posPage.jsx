@@ -33,8 +33,8 @@ import ClearCartModal from '../pos/ClearCartModal'
 import DailyReportModal from '../pos/DailyReport'
 import ShowHeldSalesModal from './ShowHeldSalesModal'
 
-const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-const API_URL = `${API_ROOT}/api/v1`
+const API_ROOT = import.meta.env.VITE_BACKEND_URL
+const API_URL = `${API_ROOT}api/v1`
 
 const POSPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -747,31 +747,46 @@ const POSPage = () => {
     },
   ]
   // ==========================================================
-  // PRODUCT CATALOG
-  // Keep the original add/select logic.
-  // Products with variants open the variant selector.
-  // Products without variants go directly into the cart.
+  // PRODUCT CATALOG CLICK HANDLER
   // ==========================================================
 
   const getProductStock = (product) => {
-    const vs = variants(product)
+    const parentStock = Number(product?.quantity || 0)
 
-    if (vs.length > 0) {
-      return vs.reduce((sum, v) => sum + Number(v?.quantity || 0), 0)
+    const variants = Array.isArray(product?.Variants)
+      ? product.Variants
+      : Array.isArray(product?.variants)
+        ? product.variants
+        : []
+
+    const variantStock = variants.reduce(
+      (total, variant) => total + Number(variant?.quantity || 0),
+      0,
+    )
+
+    // If the product has variants, use variant stock.
+    if (variants.length > 0) {
+      return variantStock
     }
 
-    return Number(product?.quantity || 0)
+    return parentStock
   }
 
   const handleCatalogClick = (product) => {
-    if (getProductStock(product) <= 0) {
-      alert('This item is out of stock.')
+    const stock = getProductStock(product)
+
+    if (stock <= 0) {
+      alert('This product is out of stock.')
       return
     }
 
-    selectProduct(product)
+    addToCart({
+      ...product,
+      productId: product.id,
+      price: Number(product.sellingPrice ?? product.price ?? 0),
+      type: 'product',
+    })
   }
-
   return (
     <div
       style={{
@@ -1040,9 +1055,9 @@ const POSPage = () => {
         <aside
           style={{
             overflow: 'hidden',
-            background: '#ffffff',
-            color: '#1f2937',
-            borderRight: '1px solid #e5e7eb',
+            background: '#191a1d',
+            color: '#ffffff',
+            borderRight: '1px solid #292a2d',
           }}
         >
           <div
@@ -1058,7 +1073,7 @@ const POSPage = () => {
               style={{
                 fontSize: '8px',
                 fontWeight: 800,
-                color: '#8b8f97',
+                color: '#73767d',
                 letterSpacing: '1.2px',
                 padding: '5px 10px 10px',
               }}
@@ -1074,10 +1089,10 @@ const POSPage = () => {
                 style={{
                   width: '100%',
                   height: '40px',
-                  border: item.active ? '1px solid #ead9a6' : '1px solid transparent',
+                  border: item.active ? '1px solid #5a4920' : '1px solid transparent',
                   borderRadius: '7px',
-                  background: item.active ? '#fff8df' : 'transparent',
-                  color: item.active ? '#9b7412' : '#4b5563',
+                  background: item.active ? '#302818' : 'transparent',
+                  color: item.active ? '#d4af37' : '#b5b7bc',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
@@ -1097,8 +1112,8 @@ const POSPage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: item.active ? '#d4af37' : '#f1f3f5',
-                    color: item.active ? '#111111' : '#6b7280',
+                    background: item.active ? '#d4af37' : '#242529',
+                    color: item.active ? '#111111' : '#858890',
                     fontWeight: 900,
                   }}
                 >
@@ -1112,7 +1127,7 @@ const POSPage = () => {
             <div
               style={{
                 marginTop: 'auto',
-                borderTop: '1px solid #e5e7eb',
+                borderTop: '1px solid #2b2c30',
                 paddingTop: '12px',
               }}
             >
@@ -1122,10 +1137,10 @@ const POSPage = () => {
                 style={{
                   width: '100%',
                   height: '36px',
-                  border: '1px solid #dfe3e8',
+                  border: '1px solid #333438',
                   borderRadius: '7px',
-                  background: '#f8f9fa',
-                  color: '#6b7280',
+                  background: '#222327',
+                  color: '#aaaeb5',
                   fontSize: '8px',
                   cursor: 'pointer',
                 }}
@@ -1314,15 +1329,43 @@ const POSPage = () => {
                   gap: '12px',
                 }}
               >
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product) => {
+                  const quantity = Number(product?.quantity || 0)
+                  const reorderLevel = Number(product?.reorderLevel || 5)
+                  const isLowStock = quantity <= reorderLevel
+
+                  return (
                   <div
                     key={product.id}
+                    onClick={() => handleCatalogClick(product)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleCatalogClick(product)
+                      }
+                    }}
                     style={{
+                      position: 'relative',
                       background: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '9px',
+                      border: '1px solid #e5e5e5',
+                      borderRadius: '10px',
+                      padding: '10px',
+                      cursor: 'pointer',
+                      transition: 'all .15s ease',
+                      userSelect: 'none',
                       overflow: 'hidden',
-                      boxShadow: '0 2px 7px rgba(0,0,0,.03)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#c9a227'
+                      e.currentTarget.style.boxShadow = '0 5px 16px rgba(0,0,0,.08)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e5e5e5'
+                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.transform = 'translateY(0)'
                     }}
                   >
                     {/* IMAGE */}
@@ -1368,11 +1411,11 @@ const POSPage = () => {
                           top: '8px',
                           left: '8px',
                           background:
-                            Number(product.quantity || 0) <= Number(product.reorderLevel || 5)
+                            isLowStock
                               ? '#fff1d6'
                               : '#e8f7ed',
                           color:
-                            Number(product.quantity || 0) <= Number(product.reorderLevel || 5)
+                            isLowStock
                               ? '#a16d0a'
                               : '#18834a',
                           padding: '4px 6px',
@@ -1382,8 +1425,8 @@ const POSPage = () => {
                         }}
                       >
                         {Number(product.quantity || 0) <= Number(product.reorderLevel || 5)
-                          ? `LOW STOCK (${product.quantity || 0})`
-                          : `IN STOCK (${product.quantity || 0})`}
+                          ? `LOW STOCK (${quantity})`
+                          : `IN STOCK (${quantity})`}
                       </div>
                     </div>
 
@@ -1433,25 +1476,21 @@ const POSPage = () => {
                           ₦{Number(product.sellingPrice || 0).toLocaleString()}
                         </strong>
 
-                        <CButton
-                          size="sm"
-                          onClick={() => handleCatalogClick(product)}
+                        <span
                           style={{
-                            background: '#111111',
-                            color: '#ffffff',
-                            border: 0,
-                            borderRadius: '5px',
-                            fontSize: '8px',
+                            fontSize: '7px',
                             fontWeight: 800,
-                            padding: '6px 9px',
+                            color: '#c9a227',
+                            whiteSpace: 'nowrap',
                           }}
                         >
-                          + ADD
-                        </CButton>
+                          TAP TO ADD
+                        </span>
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
@@ -1666,7 +1705,7 @@ const POSPage = () => {
 
                     <button
                       type="button"
-                      onClick={() => remove(item)}
+                      onClick={() => removeFromCart(index)}
                       style={{
                         border: 0,
                         background: 'transparent',
@@ -1695,7 +1734,9 @@ const POSPage = () => {
                     >
                       <button
                         type="button"
-                        onClick={() => dec(item)}
+                        onClick={() =>
+                          updateCartQuantity(index, Math.max(1, Number(item.quantity || 1) - 1))
+                        }
                         style={{
                           width: '24px',
                           height: '24px',
@@ -1721,7 +1762,7 @@ const POSPage = () => {
 
                       <button
                         type="button"
-                        onClick={() => inc(item)}
+                        onClick={() => updateCartQuantity(index, Number(item.quantity || 1) + 1)}
                         style={{
                           width: '24px',
                           height: '24px',
@@ -1922,95 +1963,6 @@ const POSPage = () => {
       {/* =====================================================
             MODALS
         ====================================================== */}
-
-      {/* =====================================================
-            PRODUCT VARIANT SELECTOR
-        ====================================================== */}
-
-      <CModal
-        visible={showVariant}
-        onClose={() => {
-          setShowVariant(false)
-          setVariantProduct(null)
-          setVariant(null)
-        }}
-        alignment="center"
-        size="lg"
-      >
-        <CModalHeader>
-          <CModalTitle>
-            Select {variantProduct?.name || 'Product Variant'}
-          </CModalTitle>
-        </CModalHeader>
-
-        <CModalBody>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-              gap: '10px',
-            }}
-          >
-            {variants(variantProduct).map((v) => {
-              const stock = Number(v?.quantity || 0)
-              const selected = Number(variant?.id) === Number(v?.id)
-
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={stock <= 0}
-                  onClick={() => setVariant(v)}
-                  style={{
-                    border: selected ? '2px solid #d4af37' : '1px solid #e5e7eb',
-                    borderRadius: '10px',
-                    background: selected ? '#fff8df' : '#ffffff',
-                    padding: '12px',
-                    textAlign: 'left',
-                    cursor: stock > 0 ? 'pointer' : 'not-allowed',
-                    opacity: stock > 0 ? 1 : .45,
-                  }}
-                >
-                  <div style={{ fontWeight: 800, fontSize: '11px' }}>
-                    {[v.size, v.color].filter(Boolean).join(' / ') || 'Standard'}
-                  </div>
-                  <div style={{ marginTop: 5, fontWeight: 900, fontSize: '13px' }}>
-                    ₦{Number(v.sellingPrice ?? variantProduct?.sellingPrice ?? 0).toLocaleString()}
-                  </div>
-                  <div style={{ marginTop: 5, fontSize: '9px', color: stock > 0 ? '#18834a' : '#b42318' }}>
-                    {stock > 0 ? `${stock} IN STOCK` : 'OUT OF STOCK'}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </CModalBody>
-
-        <CModalFooter>
-          <CButton
-            color="light"
-            onClick={() => {
-              setShowVariant(false)
-              setVariantProduct(null)
-              setVariant(null)
-            }}
-          >
-            Cancel
-          </CButton>
-          <CButton
-            color="dark"
-            disabled={!variant || Number(variant?.quantity || 0) <= 0}
-            onClick={() => {
-              add(variantProduct, variant)
-              setShowVariant(false)
-              setVariantProduct(null)
-              setVariant(null)
-            }}
-          >
-            Add to Cart
-          </CButton>
-        </CModalFooter>
-      </CModal>
 
       <CustomerSearchModal
         show={showCustomer}
