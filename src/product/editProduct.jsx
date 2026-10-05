@@ -127,7 +127,7 @@ const EditProduct = () => {
       setLoading(true)
       setError('')
 
-      const response = await axios.get(api(`/api/v1/products/${id}`), authConfig())
+      const response = await axios.get(api(`api/v1/products/${id}`), authConfig())
 
       const data = response?.data?.product || response?.data?.data || response?.data
 
@@ -171,7 +171,7 @@ const EditProduct = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const response = await axios.get(api('/api/v1/categories'), authConfig())
+      const response = await axios.get(api('api/v1/categories'), authConfig())
 
       const data = response?.data
 
@@ -195,7 +195,7 @@ const EditProduct = () => {
 
   const fetchBrands = useCallback(async () => {
     try {
-      const response = await axios.get(api('/api/v1/brands'), authConfig())
+      const response = await axios.get(api('api/v1/brands'), authConfig())
 
       const data = response?.data
 
@@ -359,7 +359,7 @@ const EditProduct = () => {
         payload.append('image', imageFile)
       }
 
-      const response = await axios.put(api(`/api/v1/products/${id}`), payload, {
+      const response = await axios.put(api(`api/v1/products/${id}`), payload, {
         ...authConfig(),
         headers: {
           ...authConfig().headers,
@@ -545,11 +545,11 @@ const EditProduct = () => {
        */
 
       if (editingVariantId) {
-        await axios.put(api(`/api/v1/products/variants/${editingVariantId}`), payload, authConfig())
+        await axios.put(api(`api/v1/products/variants/${editingVariantId}`), payload, authConfig())
 
         successAlert('Variant updated successfully.')
       } else {
-        await axios.post(api(`/api/v1/products/${id}/variants`), payload, authConfig())
+        await axios.post(api(`api/v1/products/${id}/variants`), payload, authConfig())
 
         successAlert('Variant added successfully.')
       }
@@ -581,7 +581,7 @@ const EditProduct = () => {
     if (!confirmed) return
 
     try {
-      await axios.delete(api(`/api/v1/products/${id}/variants/${variantId}`), authConfig())
+      await axios.delete(api(`api/v1/products/${id}/variants/${variantId}`), authConfig())
 
       successAlert('Variant deleted successfully.')
 
