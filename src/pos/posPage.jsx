@@ -37,7 +37,6 @@ const API_ROOT = import.meta.env.VITE_BACKEND_URL
 const API_URL = `${API_ROOT}api/v1`
 
 const POSPage = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
   const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('user') || '{}')
@@ -301,224 +300,68 @@ const POSPage = () => {
     window.electronAPI?.updateCustomerDisplay?.({ cart, subtotal, total, customer })
   }, [cart, subtotal, total, customer])
   const complete = async (pd) => {
-    if (!cart.length) {
-      alert('Cart is empty')
-      return
-    }
-
-    if (processing) return
-
+    if (!cart.length) return alert('Cart is empty')
     setProcessing(true)
-
     const id = localId()
-
     const payload = {
       localSaleId: id,
       queuedAt: new Date().toISOString(),
-
       customerId: customer?.id || null,
-
       items: cart.map((i) => ({
         productId: Number(i.productId || i.id),
         variantId: i.variantId ? Number(i.variantId) : null,
         quantity: Number(i.quantity),
         price: Number(i.price),
         subtotal: Number(i.price) * Number(i.quantity),
-
-        // Keep receipt information
-        name: i.name,
-        sku: i.sku || '',
-        size: i.size || null,
-        color: i.color || null,
       })),
-
-      discount: Number(discount || 0),
-
+      discount: Number(discount),
       paymentMethod: pd?.paymentMethod || paymentMethod,
-
       note: pd?.note?.trim() || null,
-
+      standTag: pd?.standTag?.trim() || null,
+      cardNumber: pd?.cardNumber?.trim() || null,
       usePoints: Boolean(usePoints),
       redeemPoints: Number(redeemPoints || 0),
-
       subtotal: Number(subtotal),
       totalAmount: Number(total),
     }
-
     try {
-      console.log('POS SALE PAYLOAD:', payload)
-
-      const r = await axios.post(`${API_URL}/sales`, payload, {
-        ...cfg(),
-        timeout: 12000,
-      })
-
-      console.log('POS SALE RESPONSE:', r.data)
-
-      /*
-       * IMPORTANT:
-       * Backend may return:
-       *
-       * { sale: {...} }
-       * or
-       * { data: {...} }
-       * or
-       * the sale object directly.
-       */
-      const serverSale = r?.data?.sale || r?.data?.data || r?.data
-
-      if (!serverSale) {
-        throw new Error('Sale was completed but no receipt data was returned.')
-      }
-
-      /*
-       * Make sure ReceiptModal receives the items.
-       */
-      const receiptSale = {
-        ...serverSale,
-
-        id: serverSale.id || null,
-
-        receiptNumber: serverSale.receiptNumber || serverSale.receiptNo || `ONI-${Date.now()}`,
-
-        localSaleId: serverSale.localSaleId || id,
-
-        subtotal: Number(serverSale.subtotal ?? subtotal),
-
-        discount: Number(serverSale.discount ?? discount ?? 0),
-
-        totalAmount: Number(serverSale.totalAmount ?? total),
-
-        paymentMethod: serverSale.paymentMethod || payload.paymentMethod,
-
-        customer: serverSale.customer || serverSale.Customer || customer || null,
-
-        Customer: serverSale.Customer || serverSale.customer || customer || null,
-
-        /*
-         * Backend names
-         */
-        SaleItems: Array.isArray(serverSale.SaleItems)
-          ? serverSale.SaleItems
-          : Array.isArray(serverSale.saleItems)
-            ? serverSale.saleItems
-            : Array.isArray(serverSale.items)
-              ? serverSale.items
-              : payload.items,
-
-        /*
-         * Also provide lowercase items.
-         */
-        items: Array.isArray(serverSale.items)
-          ? serverSale.items
-          : Array.isArray(serverSale.SaleItems)
-            ? serverSale.SaleItems
-            : Array.isArray(serverSale.saleItems)
-              ? serverSale.saleItems
-              : payload.items,
-      }
-
-      console.log('RECEIPT DATA:', receiptSale)
-
-      /*
-       * Set the SALE FIRST.
-       */
-      setSale(receiptSale)
-
-      /*
-       * Close payment.
-       */
+      const r = await axios.post(`${API_URL}/sales`, payload, { ...cfg(), timeout: 12000 })
+      setSale(r.data?.sale || r.data)
       setShowPayment(false)
-
-      /*
-       * IMPORTANT:
-       * Open receipt only after receiptSale has been prepared.
-       */
       setShowReceipt(true)
-
-      /*
-       * Now clear the POS.
-       */
       clearPOS()
-
-      await refreshQueue()
-
-      /*
-       * Refresh products so stock immediately reflects
-       * the completed sale.
-       */
-      load()
+      refreshQueue()
     } catch (e) {
-      console.error('COMPLETE SALE ERROR:', e)
-
-      /*
-       * Server responded with an actual error.
-       * Do NOT show a fake receipt.
-       */
       if (e?.response) {
-        alert(e.response?.data?.message || e.response?.data?.error || 'Failed to complete sale')
-
+        alert(e.response?.data?.message || 'Failed to complete sale')
         return
       }
-
-      /*
-       * No server response = network/offline situation.
-       */
       try {
-        await window.electronAPI?.offlineAddQueue?.('sale', payload)
-
+        await window.electronAPI.offlineAddQueue('sale', payload)
         const off = {
           id,
-
           localSaleId: id,
-
           receiptNumber: `OFF-${id.replace('LOCAL-', '')}`,
-
           createdAt: new Date().toISOString(),
-
           offline: true,
-
           status: 'pending_sync',
-
           customer,
-
           Customer: customer,
-
           subtotal,
-
           discount,
-
           totalAmount: total,
-
           paymentMethod: payload.paymentMethod,
-
           note: payload.note,
-
           items: cart,
-
-          SaleItems: cart.map((i) => ({
-            ...i,
-
-            subtotal: Number(i.price) * Number(i.quantity),
-          })),
+          SaleItems: cart.map((i) => ({ ...i, subtotal: Number(i.price) * Number(i.quantity) })),
         }
-
-        console.log('OFFLINE RECEIPT:', off)
-
         setSale(off)
-
         setShowPayment(false)
-
         setShowReceipt(true)
-
         clearPOS()
-
-        await refreshQueue()
-
+        refreshQueue()
         alert('Server unavailable. Sale saved offline and will synchronize automatically.')
       } catch (q) {
-        console.error('OFFLINE SAVE ERROR:', q)
-
         alert('Sale could not be completed or saved offline.')
       }
     } finally {
@@ -660,1344 +503,991 @@ const POSPage = () => {
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [cart])
-
-  const filteredProducts = useMemo(() => {
-    const list = Array.isArray(products) ? products : []
-
-    const keyword = String(search || '')
-      .trim()
-      .toLowerCase()
-
-    return list.filter((product) => {
-      const matchesSearch =
-        !keyword ||
-        String(product?.name || '')
-          .toLowerCase()
-          .includes(keyword) ||
-        String(product?.sku || '')
-          .toLowerCase()
-          .includes(keyword) ||
-        String(product?.barcode || '')
-          .toLowerCase()
-          .includes(keyword)
-
-      const matchesCategory =
-        category === 'all' ||
-        category === '' ||
-        category === null ||
-        String(product?.categoryId || '') === String(category)
-
-      return matchesSearch && matchesCategory
-    })
-  }, [products, search, category])
   const categoryTabs = [
     { id: 'all', name: 'ALL PRODUCTS' },
     ...categories.map((c) => ({ id: c.id, name: c.name })),
   ]
-  const navigateTo = (path) => {
-    window.location.hash = path.startsWith('#') ? path : `#${path}`
-  }
-
-  const navigationItems = [
-    {
-      label: 'Dashboard',
-      path: '/dashboard',
-      icon: '⌂',
-    },
-    {
-      label: 'Point of Sale',
-      path: '/pos',
-      icon: '▣',
-      active: true,
-    },
-    {
-      label: 'Products',
-      path: '/products',
-      icon: '◈',
-    },
-    {
-      label: 'Purchases',
-      path: '/purchases',
-      icon: '↓',
-    },
-    {
-      label: 'Inventory',
-      path: '/stock',
-      icon: '▤',
-    },
-    {
-      label: 'Customers',
-      path: '/customers',
-      icon: '♙',
-    },
-    {
-      label: 'Sales History',
-      path: '/sales',
-      icon: '▥',
-    },
-    {
-      label: 'Reports',
-      path: '/reports',
-      icon: '◒',
-    },
-    {
-      label: 'Settings',
-      path: '/settings',
-      icon: '⚙',
-    },
-  ]
-  // ==========================================================
-  // PRODUCT CATALOG CLICK HANDLER
-  // ==========================================================
-
-  const getProductStock = (product) => {
-    const parentStock = Number(product?.quantity || 0)
-
-    const variants = Array.isArray(product?.Variants)
-      ? product.Variants
-      : Array.isArray(product?.variants)
-        ? product.variants
-        : []
-
-    const variantStock = variants.reduce(
-      (total, variant) => total + Number(variant?.quantity || 0),
-      0,
-    )
-
-    // If the product has variants, use variant stock.
-    if (variants.length > 0) {
-      return variantStock
-    }
-
-    return parentStock
-  }
-
-  const handleCatalogClick = (product) => {
-    const stock = getProductStock(product)
-
-    if (stock <= 0) {
-      alert('This product is out of stock.')
-      return
-    }
-
-    addToCart({
-      ...product,
-      productId: product.id,
-      price: Number(product.sellingPrice ?? product.price ?? 0),
-      type: 'product',
-    })
-  }
   return (
     <div
       style={{
-        height: '100vh',
         minHeight: '100vh',
+        height: '100vh',
         overflow: 'hidden',
-        background: '#f5f6f8',
-        color: '#171717',
-        fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-        fontSize: '13px',
+        background: '#0b0c0e',
+        color: '#f5f1e6',
+        fontFamily: 'Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        fontSize: 12,
       }}
     >
-      {/* =====================================================
-            TOP HEADER
-        ====================================================== */}
-
       <header
         style={{
-          height: '64px',
-          background: '#ffffff',
-          borderBottom: '1px solid #e5e7eb',
+          height: 64,
           display: 'flex',
           alignItems: 'center',
-          gap: '14px',
-          padding: '0 18px',
-          position: 'relative',
-          zIndex: 100,
+          gap: 14,
+          padding: '0 16px',
+          background: '#101114',
+          borderBottom: '1px solid #2a2a27',
         }}
       >
-        {/* BRAND */}
-
-        <div
-          style={{
-            width: '205px',
-            minWidth: '205px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 215 }}>
           <div
             style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '7px',
-              background: '#d4af37',
-              color: '#111111',
+              width: 38,
+              height: 38,
+              borderRadius: 8,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '12px',
+              background: '#c9a43b',
+              color: '#111',
+              fontWeight: 950,
             }}
           >
             OG
           </div>
-
           <div>
-            <div
-              style={{
-                fontSize: '14px',
-                fontWeight: 900,
-                letterSpacing: '1px',
-                lineHeight: 1,
-              }}
-            >
-              ONISHAKARA
-            </div>
-
-            <div
-              style={{
-                fontSize: '8px',
-                color: '#8b8f97',
-                marginTop: '5px',
-                letterSpacing: '.8px',
-              }}
-            >
-              GOLD FASHION STORE
+            <div style={{ fontSize: 15, fontWeight: 950, letterSpacing: 1 }}>ONISHAKARA GOLD</div>
+            <div style={{ marginTop: 5, fontSize: 8, color: '#8c8a82', letterSpacing: 1 }}>
+              HAUTE COUTURE • POINT OF SALE
             </div>
           </div>
         </div>
-
-        {/* SEARCH */}
-
         <div
           style={{
             flex: 1,
-            height: '38px',
+            height: 38,
             display: 'flex',
             alignItems: 'center',
-            gap: '9px',
+            gap: 9,
             padding: '0 12px',
-            border: '1px solid #dfe3e8',
-            borderRadius: '8px',
-            background: '#ffffff',
+            background: '#191a1c',
+            border: '1px solid #35342f',
+            borderRadius: 7,
           }}
         >
-          <CIcon
-            icon={cilBarcode}
-            style={{
-              color: '#b28a18',
-              flexShrink: 0,
-            }}
-          />
-
+          <CIcon icon={cilBarcode} style={{ color: '#c9a43b' }} />
           <CFormInput
+            id="pos-product-search"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-            }}
-            placeholder="Search garment name, SKU, textile, or barcode..."
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search garment name, SKU, barcode, or category..."
             style={{
               border: 0,
-              boxShadow: 'none',
               outline: 0,
+              boxShadow: 'none',
               background: 'transparent',
-              color: '#111827',
-              fontSize: '12px',
+              color: '#f4f1e8',
               padding: 0,
+              fontSize: 11,
             }}
           />
-
           <span
             style={{
-              fontSize: '8px',
-              color: '#8b8f97',
-              border: '1px solid #e5e7eb',
-              borderRadius: '5px',
-              padding: '3px 7px',
+              color: '#77756d',
+              fontSize: 8,
+              border: '1px solid #3a3934',
+              padding: '4px 7px',
+              borderRadius: 4,
             }}
           >
             F3
           </span>
         </div>
-
-        {/* ONLINE STATUS */}
-
         <div
           style={{
-            minWidth: '105px',
+            minWidth: 118,
             padding: '6px 9px',
-            borderRadius: '7px',
-            border: `1px solid ${online ? '#cdebd6' : '#f0cccc'}`,
-            background: online ? '#f3fbf5' : '#fff5f5',
+            border: `1px solid ${online ? '#304b3a' : '#553536'}`,
+            borderRadius: 7,
+            background: online ? '#111916' : '#1c1213',
           }}
         >
-          <div
-            style={{
-              color: online ? '#18834a' : '#c43d3d',
-              fontSize: '9px',
-              fontWeight: 800,
-            }}
-          >
+          <div style={{ color: online ? '#69cf91' : '#e07070', fontSize: 8, fontWeight: 900 }}>
             ● {online ? 'ONLINE' : 'OFFLINE'}
           </div>
-
-          <div
-            style={{
-              color: '#8b8f97',
-              fontSize: '7px',
-              marginTop: '3px',
-            }}
-          >
-            {syncing ? 'SYNCING...' : queueCount ? `${queueCount} PENDING` : 'SYNC ACTIVE'}
+          <div style={{ color: '#77756d', fontSize: 7, marginTop: 3 }}>
+            {syncing
+              ? 'SYNCING SALES...'
+              : queueCount
+                ? `${queueCount} SALE${queueCount === 1 ? '' : 'S'} PENDING`
+                : 'SYNC ACTIVE'}
           </div>
         </div>
-
-        {/* TIME */}
-
-        <div
-          style={{
-            textAlign: 'center',
-            minWidth: '55px',
-          }}
-        >
-          <div
-            style={{
-              fontWeight: 800,
-              fontSize: '11px',
-            }}
-          >
-            {new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+        <div style={{ textAlign: 'center', minWidth: 62 }}>
+          <div style={{ fontSize: 11, fontWeight: 850 }}>
+            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
-
-          <div
-            style={{
-              fontSize: '7px',
-              color: '#8b8f97',
-            }}
-          >
-            WAT
-          </div>
+          <div style={{ fontSize: 7, color: '#77756d' }}>WAT</div>
         </div>
-
-        {/* USER */}
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <div
-            style={{
-              textAlign: 'right',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '10px',
-                fontWeight: 800,
-              }}
-            >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 145 }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 9, fontWeight: 850 }}>
               {user?.fullname || user?.name || 'Cashier'}
             </div>
-
-            <div
-              style={{
-                fontSize: '7px',
-                color: '#8b8f97',
-              }}
-            >
-              CASHIER
-            </div>
+            <div style={{ fontSize: 7, color: '#77756d' }}>CASHIER / SALES</div>
           </div>
-
           <div
             style={{
-              width: '32px',
-              height: '32px',
+              width: 31,
+              height: 31,
               borderRadius: '50%',
-              background: '#d4af37',
-              color: '#111111',
+              background: '#c9a43b',
+              color: '#111',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900,
+              fontWeight: 950,
             }}
           >
             {(user?.fullname || user?.name || 'C').charAt(0).toUpperCase()}
           </div>
         </div>
       </header>
-
-      {/* =====================================================
-            MAIN AREA
-        ====================================================== */}
-
       <div
         style={{
           height: 'calc(100vh - 64px)',
           display: 'grid',
-          gridTemplateColumns: `${sidebarOpen ? '210px' : '0px'} minmax(0, 1fr) 380px`,
-          transition: 'grid-template-columns .2s ease',
+          gridTemplateColumns: 'minmax(0,1fr) 390px',
           minHeight: 0,
         }}
       >
-        {/* ===================================================
-              SIDEBAR
-          ==================================================== */}
-
-        <aside
-          style={{
-            overflow: 'hidden',
-            background: '#191a1d',
-            color: '#ffffff',
-            borderRight: '1px solid #292a2d',
-          }}
-        >
-          <div
-            style={{
-              width: '210px',
-              height: '100%',
-              padding: '16px 10px',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '8px',
-                fontWeight: 800,
-                color: '#73767d',
-                letterSpacing: '1.2px',
-                padding: '5px 10px 10px',
-              }}
-            >
-              MAIN MENU
-            </div>
-
-            {navigationItems.map((item) => (
-              <button
-                key={item.path}
-                type="button"
-                onClick={() => navigateTo(item.path)}
-                style={{
-                  width: '100%',
-                  height: '40px',
-                  border: item.active ? '1px solid #5a4920' : '1px solid transparent',
-                  borderRadius: '7px',
-                  background: item.active ? '#302818' : 'transparent',
-                  color: item.active ? '#d4af37' : '#b5b7bc',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '0 10px',
-                  cursor: 'pointer',
-                  marginBottom: '3px',
-                  textAlign: 'left',
-                  fontSize: '10px',
-                  fontWeight: item.active ? 800 : 600,
-                }}
-              >
-                <span
-                  style={{
-                    width: '25px',
-                    height: '25px',
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: item.active ? '#d4af37' : '#242529',
-                    color: item.active ? '#111111' : '#858890',
-                    fontWeight: 900,
-                  }}
-                >
-                  {item.icon}
-                </span>
-
-                {item.label}
-              </button>
-            ))}
-
-            <div
-              style={{
-                marginTop: 'auto',
-                borderTop: '1px solid #2b2c30',
-                paddingTop: '12px',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(false)}
-                style={{
-                  width: '100%',
-                  height: '36px',
-                  border: '1px solid #333438',
-                  borderRadius: '7px',
-                  background: '#222327',
-                  color: '#aaaeb5',
-                  fontSize: '8px',
-                  cursor: 'pointer',
-                }}
-              >
-                ‹ COLLAPSE MENU
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        {/* ===================================================
-              PRODUCTS WORKSPACE
-          ==================================================== */}
-
         <main
           style={{
             minWidth: 0,
             minHeight: 0,
-            overflow: 'hidden',
-            background: '#f7f8fa',
             display: 'flex',
             flexDirection: 'column',
+            background: '#111214',
           }}
         >
-          {/* POS TITLE BAR */}
-
           <div
             style={{
-              background: '#ffffff',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '12px 15px',
+              minHeight: 58,
+              padding: '10px 14px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: '16px',
-                  fontWeight: 900,
-                  color: '#1f2937',
-                }}
-              >
-                Point of Sale
-              </div>
-
-              <div
-                style={{
-                  fontSize: '8px',
-                  color: '#8b8f97',
-                  marginTop: '3px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '.7px',
-                }}
-              >
-                Retail terminal
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: '7px',
-              }}
-            >
-              <CButton
-                size="sm"
-                color="light"
-                onClick={() => navigateTo('/dashboard')}
-                style={{
-                  border: '1px solid #dfe3e8',
-                  fontWeight: 700,
-                  fontSize: '10px',
-                }}
-              >
-                ⌂ Dashboard
-              </CButton>
-
-              <CButton
-                size="sm"
-                color="light"
-                onClick={() => setShowHold(true)}
-                style={{
-                  border: '1px solid #dfe3e8',
-                  fontWeight: 700,
-                  fontSize: '10px',
-                }}
-              >
-                Hold Order
-              </CButton>
-
-              <CButton
-                size="sm"
-                style={{
-                  background: '#111111',
-                  color: '#ffffff',
-                  border: 0,
-                  fontWeight: 800,
-                  fontSize: '10px',
-                }}
-                onClick={() => clearPOS()}
-              >
-                + New Sale
-              </CButton>
-            </div>
-          </div>
-
-          {/* CATEGORY BAR */}
-
-          <div
-            style={{
-              background: '#ffffff',
-              borderBottom: '1px solid #e5e7eb',
-              padding: '9px 14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              gap: 7,
+              borderBottom: '1px solid #292a27',
+              background: '#151618',
               overflowX: 'auto',
             }}
           >
             {categoryTabs.map((c) => (
               <button
                 key={c.id}
-                type="button"
                 onClick={() => setCategory(c.id)}
                 style={{
-                  height: '31px',
-                  padding: '0 12px',
-                  border:
-                    String(category) === String(c.id) ? '1px solid #c39b2d' : '1px solid #e1e4e8',
-                  borderRadius: '6px',
-                  background: String(category) === String(c.id) ? '#fff8df' : '#ffffff',
-                  color: String(category) === String(c.id) ? '#9b7412' : '#6b7280',
-                  fontSize: '8px',
-                  fontWeight: 800,
+                  height: 34,
+                  padding: '0 13px',
                   whiteSpace: 'nowrap',
-                  cursor: 'pointer',
+                  border:
+                    String(category) === String(c.id) ? '1px solid #b58e2e' : '1px solid #343530',
+                  borderRadius: 6,
+                  background: String(category) === String(c.id) ? '#2a2414' : '#1b1c1e',
+                  color: String(category) === String(c.id) ? '#d8b34a' : '#88877f',
+                  fontSize: 8,
+                  fontWeight: 900,
                 }}
               >
                 {c.name}
               </button>
             ))}
-          </div>
-
-          {/* PRODUCT AREA */}
-
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '14px',
-            }}
-          >
-            {loading ? (
-              <div
-                style={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#8b8f97',
-                }}
-              >
-                Loading products...
-              </div>
-            ) : filteredProducts.length === 0 ? (
-              <div
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '10px',
-                  padding: '50px 20px',
-                  textAlign: 'center',
-                  color: '#8b8f97',
-                }}
-              >
-                No products found.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(175px, 1fr))',
-                  gap: '12px',
-                }}
-              >
-                {filteredProducts.map((product) => {
-                  const quantity = Number(product?.quantity || 0)
-                  const reorderLevel = Number(product?.reorderLevel || 5)
-                  const isLowStock = quantity <= reorderLevel
-
-                  return (
-                  <div
-                    key={product.id}
-                    onClick={() => handleCatalogClick(product)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        handleCatalogClick(product)
-                      }
-                    }}
-                    style={{
-                      position: 'relative',
-                      background: '#ffffff',
-                      border: '1px solid #e5e5e5',
-                      borderRadius: '10px',
-                      padding: '10px',
-                      cursor: 'pointer',
-                      transition: 'all .15s ease',
-                      userSelect: 'none',
-                      overflow: 'hidden',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#c9a227'
-                      e.currentTarget.style.boxShadow = '0 5px 16px rgba(0,0,0,.08)'
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#e5e5e5'
-                      e.currentTarget.style.boxShadow = 'none'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }}
-                  >
-                    {/* IMAGE */}
-
-                    <div
-                      style={{
-                        height: '150px',
-                        background: '#f0f1f3',
-                        position: 'relative',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#a0a4aa',
-                            fontSize: '30px',
-                            fontWeight: 900,
-                          }}
-                        >
-                          OG
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          left: '8px',
-                          background:
-                            isLowStock
-                              ? '#fff1d6'
-                              : '#e8f7ed',
-                          color:
-                            isLowStock
-                              ? '#a16d0a'
-                              : '#18834a',
-                          padding: '4px 6px',
-                          borderRadius: '4px',
-                          fontSize: '7px',
-                          fontWeight: 800,
-                        }}
-                      >
-                        {Number(product.quantity || 0) <= Number(product.reorderLevel || 5)
-                          ? `LOW STOCK (${quantity})`
-                          : `IN STOCK (${quantity})`}
-                      </div>
-                    </div>
-
-                    {/* PRODUCT DETAILS */}
-
-                    <div
-                      style={{
-                        padding: '10px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          fontWeight: 800,
-                          color: '#1f2937',
-                          minHeight: '30px',
-                        }}
-                      >
-                        {product.name}
-                      </div>
-
-                      <div
-                        style={{
-                          fontSize: '8px',
-                          color: '#8b8f97',
-                          marginTop: '3px',
-                        }}
-                      >
-                        {product.sku || 'NO SKU'}
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: '9px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '5px',
-                        }}
-                      >
-                        <strong
-                          style={{
-                            fontSize: '13px',
-                            color: '#111827',
-                          }}
-                        >
-                          ₦{Number(product.sellingPrice || 0).toLocaleString()}
-                        </strong>
-
-                        <span
-                          style={{
-                            fontSize: '7px',
-                            fontWeight: 800,
-                            color: '#c9a227',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          TAP TO ADD
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* ===================================================
-              RIGHT ORDER PANEL
-          ==================================================== */}
-
-        <aside
-          style={{
-            background: '#ffffff',
-            borderLeft: '1px solid #e1e4e8',
-            minWidth: 0,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* CUSTOMER */}
-
-          <div
-            style={{
-              padding: '12px',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
-            <div
+            <div style={{ flex: 1, minWidth: 10 }} />
+            <button
+              onClick={() => setShowCustomer(true)}
               style={{
-                fontSize: '8px',
-                color: '#8b8f97',
+                height: 34,
+                padding: '0 10px',
+                border: '1px solid #35362f',
+                borderRadius: 6,
+                background: '#1b1c1e',
+                color: '#aaa79c',
+                fontSize: 8,
                 fontWeight: 800,
-                letterSpacing: '.8px',
-                marginBottom: '7px',
               }}
             >
-              ACTIVE ORDER
-            </div>
-
+              <CIcon icon={cilPeople} className="me-1" />
+              CUSTOMER
+            </button>
+            <button
+              onClick={() => setShowBarcode(true)}
+              style={{
+                height: 34,
+                padding: '0 10px',
+                border: '1px solid #35362f',
+                borderRadius: 6,
+                background: '#1b1c1e',
+                color: '#aaa79c',
+                fontSize: 8,
+                fontWeight: 800,
+              }}
+            >
+              <CIcon icon={cilBarcode} className="me-1" />
+              SCAN
+            </button>
+            <button
+              onClick={() => setShowReceiptSearch(true)}
+              style={{
+                height: 34,
+                padding: '0 10px',
+                border: '1px solid #35362f',
+                borderRadius: 6,
+                background: '#1b1c1e',
+                color: '#aaa79c',
+                fontSize: 8,
+                fontWeight: 800,
+              }}
+            >
+              <CIcon icon={cilPrint} className="me-1" />
+              REPRINT
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 14px' }}>
             <div
               style={{
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '9px',
                 display: 'flex',
-                alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '8px',
+                alignItems: 'center',
+                marginBottom: 10,
               }}
             >
               <div>
-                <div
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 800,
-                  }}
-                >
-                  {customer?.fullname || customer?.name || 'Walk-in Customer'}
+                <div style={{ fontSize: 10, color: '#d8b34a', fontWeight: 950, letterSpacing: 1 }}>
+                  RETAIL REGISTRY
                 </div>
-
-                <div
-                  style={{
-                    color: '#8b8f97',
-                    fontSize: '8px',
-                    marginTop: '3px',
-                  }}
-                >
-                  {customer?.phone || 'No customer selected'}
+                <div style={{ marginTop: 3, fontSize: 7, color: '#77766f' }}>
+                  Select a garment or retail product to add it to the active order.
                 </div>
               </div>
-
-              <CButton
-                size="sm"
-                color="light"
-                onClick={() => setShowCustomer(true)}
+              <button
+                onClick={() => setShowClear(true)}
                 style={{
-                  border: '1px solid #e1e4e8',
-                  fontSize: '8px',
-                  fontWeight: 800,
+                  height: 29,
+                  padding: '0 9px',
+                  border: '1px solid #493033',
+                  borderRadius: 5,
+                  background: '#211719',
+                  color: '#d47777',
+                  fontSize: 7,
+                  fontWeight: 900,
                 }}
               >
-                {customer ? 'CHANGE' : '+ CUSTOMER'}
-              </CButton>
+                CLEAR CART
+              </button>
             </div>
-          </div>
-
-          {/* CART HEADER */}
-
-          <div
-            style={{
-              padding: '11px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 900,
-                fontSize: '10px',
-              }}
-            >
-              Garment Registry
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowClear(true)}
-              style={{
-                border: 0,
-                background: 'transparent',
-                color: '#9b7412',
-                fontSize: '8px',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              CLEAR ALL
-            </button>
-          </div>
-
-          {/* CART */}
-
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '8px 12px',
-            }}
-          >
-            {cart.length === 0 ? (
+            {loading ? (
+              <div style={{ padding: '80px 0', textAlign: 'center', color: '#77766f' }}>
+                Loading retail catalogue...
+              </div>
+            ) : filtered.length ? (
               <div
-                style={{
-                  padding: '45px 15px',
-                  textAlign: 'center',
-                  color: '#9ca3af',
-                }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 9 }}
               >
-                <div
-                  style={{
-                    fontSize: '28px',
-                    marginBottom: '8px',
-                  }}
-                >
-                  🛍
-                </div>
-
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: '11px',
-                  }}
-                >
-                  Your order is empty
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '8px',
-                    marginTop: '4px',
-                  }}
-                >
-                  Add products from the registry.
-                </div>
-              </div>
-            ) : (
-              cart.map((item, index) => (
-                <div
-                  key={item.variantId || item.productId || item.id || index}
-                  style={{
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '9px',
-                    marginBottom: '7px',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: '8px',
-                    }}
-                  >
-                    <div
+                {filtered.map((p) => {
+                  const vs = variants(p),
+                    stock = vs.length
+                      ? vs.reduce((s, v) => s + Number(v.quantity || 0), 0)
+                      : Number(p.quantity || 0)
+                  return (
+                    <button
+                      key={p.id}
+                      disabled={stock <= 0}
+                      onClick={() => selectProduct(p)}
                       style={{
-                        minWidth: 0,
+                        minHeight: 150,
+                        padding: 11,
+                        textAlign: 'left',
+                        border: '1px solid #30312d',
+                        borderRadius: 7,
+                        background: stock <= 0 ? '#141517' : '#191a1c',
+                        color: '#f0ede5',
+                        opacity: stock <= 0 ? 0.5 : 1,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: '9px',
-                          fontWeight: 800,
-                          color: '#1f2937',
-                        }}
-                      >
-                        {item.name || 'Product'}
-                      </div>
-
-                      {(item.size || item.color) && (
-                        <div
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 7 }}>
+                        <span
                           style={{
-                            color: '#8b8f97',
-                            fontSize: '7px',
-                            marginTop: '3px',
+                            color: '#8e8b82',
+                            fontSize: 7,
+                            fontWeight: 950,
+                            letterSpacing: 1,
                           }}
                         >
-                          {[item.size, item.color].filter(Boolean).join(' / ')}
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => removeFromCart(index)}
+                          {catName(p).toUpperCase()}
+                        </span>
+                        <span
+                          style={{
+                            color: stock > 10 ? '#69cf91' : '#d8b34a',
+                            fontSize: 6,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {stock > 0 ? `${stock} IN STOCK` : 'OUT OF STOCK'}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 13,
+                          fontSize: 12,
+                          fontWeight: 900,
+                          lineHeight: 1.25,
+                          minHeight: 31,
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                      <div style={{ marginTop: 5, fontSize: 7, color: '#77766f' }}>
+                        {p.sku || p.barcode || 'Retail item'}
+                        {vs.length ? ` • ${vs.length} variant${vs.length > 1 ? 's' : ''}` : ''}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 16,
+                          paddingTop: 8,
+                          borderTop: '1px solid #2b2c29',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span style={{ color: '#d8b34a', fontSize: 12, fontWeight: 950 }}>
+                          ₦
+                          {Number(
+                            vs.length
+                              ? Math.min(
+                                  ...vs
+                                    .filter((v) => Number(v.quantity || 0) > 0)
+                                    .map((v) => Number(v.sellingPrice || 0)),
+                                )
+                              : p.sellingPrice || 0,
+                          ).toLocaleString()}
+                        </span>
+                        <CIcon icon={vs.length ? cilChart : cilPlus} size="sm" />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '80px 0', textAlign: 'center', color: '#77766f' }}>
+                <CIcon icon={cilCart} size="xl" />
+                <div style={{ marginTop: 9, fontWeight: 850 }}>No products found</div>
+                <div style={{ fontSize: 8, marginTop: 4 }}>Try another search or category.</div>
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              height: 38,
+              minHeight: 38,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 18,
+              padding: '0 14px',
+              background: '#0d0e10',
+              borderTop: '1px solid #292a27',
+              color: '#706f69',
+              fontSize: 7,
+            }}
+          >
+            <span>
+              REGISTER: <b style={{ color: '#69cf91' }}>ACTIVE</b>
+            </span>
+            <span>
+              NETWORK:{' '}
+              <b style={{ color: online ? '#69cf91' : '#e07070' }}>
+                {online ? 'ONLINE' : 'OFFLINE'}
+              </b>
+            </span>
+            <span>
+              QUEUE: <b style={{ color: queueCount ? '#d8b34a' : '#69cf91' }}>{queueCount}</b>
+            </span>
+            <button
+              onClick={() => cart.length && setShowHold(true)}
+              style={{ border: 0, background: 'transparent', color: '#aaa79c', fontSize: 7 }}
+            >
+              Hold [F4]
+            </button>
+            <button
+              onClick={() => {
+                getHeld()
+                setShowHeld(true)
+              }}
+              style={{ border: 0, background: 'transparent', color: '#aaa79c', fontSize: 7 }}
+            >
+              Held Sales
+            </button>
+            <button
+              onClick={daily}
+              style={{ border: 0, background: 'transparent', color: '#aaa79c', fontSize: 7 }}
+            >
+              Daily Report
+            </button>
+            {queueCount > 0 && (
+              <button
+                onClick={sync}
+                disabled={syncing || !online}
+                style={{
+                  marginLeft: 'auto',
+                  border: '1px solid #5a4922',
+                  borderRadius: 4,
+                  background: '#201b10',
+                  color: '#d8b34a',
+                  padding: '4px 8px',
+                  fontSize: 7,
+                  fontWeight: 900,
+                }}
+              >
+                {syncing ? 'SYNCING...' : 'SYNC NOW'}
+              </button>
+            )}
+          </div>
+        </main>
+        <aside
+          style={{
+            minWidth: 0,
+            minHeight: 0,
+            background: '#151618',
+            borderLeft: '1px solid #2b2c29',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 13px',
+              borderBottom: '1px solid #2a2b28',
+              background: '#18191b',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 950 }}>ACTIVE ORDER</div>
+                <div style={{ fontSize: 7, color: '#77766f', marginTop: 4 }}>
+                  ONISHAKARA GOLD • REGISTER
+                </div>
+              </div>
+              <div
+                style={{
+                  padding: '5px 8px',
+                  border: '1px solid #3a3934',
+                  borderRadius: 5,
+                  color: '#aaa79c',
+                  fontSize: 7,
+                  fontWeight: 850,
+                }}
+              >
+                {cart.reduce((s, i) => s + Number(i.quantity || 0), 0)} ITEMS
+              </div>
+            </div>
+            <div
+              style={{
+                marginTop: 9,
+                padding: 8,
+                background: '#101112',
+                border: '1px solid #2b2c29',
+                borderRadius: 6,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div
+                  style={{
+                    width: 27,
+                    height: 27,
+                    borderRadius: 5,
+                    background: '#29261c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#d8b34a',
+                  }}
+                >
+                  <CIcon icon={cilUser} size="sm" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 7, color: '#77766f' }}>CUSTOMER</div>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      fontSize: 9,
+                      fontWeight: 850,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {customer?.fullname || customer?.name || 'Walk-in Customer'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCustomer(true)}
+                  style={{
+                    border: '1px solid #514524',
+                    background: '#211d11',
+                    color: '#d8b34a',
+                    borderRadius: 4,
+                    padding: '5px 7px',
+                    fontSize: 7,
+                    fontWeight: 900,
+                  }}
+                >
+                  CHANGE
+                </button>
+              </div>
+              {customer && (
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: 6,
+                    paddingTop: 5,
+                    borderTop: '1px solid #292a27',
+                    color: '#77766f',
+                    fontSize: 7,
+                  }}
+                >
+                  <span>{customer.phone || 'No phone'}</span>
+                  <span style={{ color: '#d8b34a' }}>{customer.loyaltyPoints || 0} pts</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
+            {!cart.length ? (
+              <div
+                style={{
+                  height: '100%',
+                  minHeight: 200,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#686761',
+                  textAlign: 'center',
+                }}
+              >
+                <CIcon icon={cilCart} size="xl" />
+                <div style={{ fontSize: 9, fontWeight: 850, marginTop: 10 }}>No items in order</div>
+                <div style={{ fontSize: 7, marginTop: 4 }}>Select a garment or retail product.</div>
+              </div>
+            ) : (
+              cart.map((i, n) => (
+                <div
+                  key={key(i)}
+                  style={{
+                    padding: 9,
+                    marginBottom: 6,
+                    background: '#101112',
+                    border: '1px solid #2b2c29',
+                    borderRadius: 6,
+                  }}
+                >
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div
                       style={{
-                        border: 0,
-                        background: 'transparent',
-                        color: '#a0a4aa',
-                        cursor: 'pointer',
+                        width: 25,
+                        height: 25,
+                        minWidth: 25,
+                        borderRadius: 5,
+                        background: '#19231e',
+                        color: '#69cf91',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 8,
+                        fontWeight: 950,
                       }}
                     >
-                      <CIcon icon={cilTrash} size="sm" />
-                    </button>
+                      {n + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 9, fontWeight: 850 }}>{i.name}</div>
+                      <div style={{ marginTop: 3, fontSize: 6, color: '#69cf91', fontWeight: 900 }}>
+                        PRODUCT
+                      </div>
+                      {(i.size || i.color) && (
+                        <div style={{ marginTop: 4, fontSize: 7, color: '#9d9a91' }}>
+                          {i.size ? `Size: ${i.size}` : ''}
+                          {i.size && i.color ? ' • ' : ''}
+                          {i.color ? `Colour: ${i.color}` : ''}
+                        </div>
+                      )}
+                      <div style={{ marginTop: 3, fontSize: 6, color: '#66655f' }}>{i.sku}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: '#d8b34a', fontSize: 9, fontWeight: 950 }}>
+                        ₦{Number(i.price * i.quantity).toLocaleString()}
+                      </div>
+                      <div style={{ color: '#66655f', fontSize: 6 }}>
+                        ₦{Number(i.price).toLocaleString()} each
+                      </div>
+                    </div>
                   </div>
-
                   <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      marginTop: '8px',
+                      marginTop: 8,
+                      paddingTop: 6,
+                      borderTop: '1px solid #292a27',
                     }}
                   >
                     <div
                       style={{
-                        display: 'flex',
+                        display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '5px',
+                        border: '1px solid #343530',
+                        borderRadius: 4,
+                        overflow: 'hidden',
                       }}
                     >
                       <button
-                        type="button"
-                        onClick={() =>
-                          updateCartQuantity(index, Math.max(1, Number(item.quantity || 1) - 1))
-                        }
+                        onClick={() => dec(i)}
                         style={{
-                          width: '24px',
-                          height: '24px',
-                          border: '1px solid #dfe3e8',
-                          background: '#ffffff',
-                          borderRadius: '5px',
-                          cursor: 'pointer',
+                          width: 25,
+                          height: 23,
+                          border: 0,
+                          background: '#1b1c1e',
+                          color: '#c4c1b8',
                         }}
                       >
                         −
                       </button>
-
                       <span
-                        style={{
-                          width: '25px',
-                          textAlign: 'center',
-                          fontWeight: 800,
-                          fontSize: '9px',
-                        }}
+                        style={{ minWidth: 28, textAlign: 'center', fontWeight: 850, fontSize: 8 }}
                       >
-                        {item.quantity || 1}
+                        {i.quantity}
                       </span>
-
                       <button
-                        type="button"
-                        onClick={() => updateCartQuantity(index, Number(item.quantity || 1) + 1)}
+                        onClick={() => inc(i)}
                         style={{
-                          width: '24px',
-                          height: '24px',
-                          border: '1px solid #dfe3e8',
-                          background: '#ffffff',
-                          borderRadius: '5px',
-                          cursor: 'pointer',
+                          width: 25,
+                          height: 23,
+                          border: 0,
+                          background: '#1b1c1e',
+                          color: '#d8b34a',
                         }}
                       >
                         +
                       </button>
                     </div>
-
-                    <strong
+                    <button
+                      onClick={() => remove(i)}
                       style={{
-                        fontSize: '10px',
+                        width: 25,
+                        height: 23,
+                        border: '1px solid #493033',
+                        borderRadius: 4,
+                        background: '#211719',
+                        color: '#d47777',
                       }}
                     >
-                      ₦
-                      {Number(
-                        Number(item.price || 0) * Number(item.quantity || 0),
-                      ).toLocaleString()}
-                    </strong>
+                      <CIcon icon={cilTrash} size="sm" />
+                    </button>
                   </div>
                 </div>
               ))
             )}
           </div>
-
-          {/* TOTALS */}
-
-          <div
-            style={{
-              borderTop: '1px solid #e5e7eb',
-              padding: '12px',
-            }}
-          >
+          <div style={{ padding: 9, borderTop: '1px solid #2a2b28', background: '#101112' }}>
+            {customer && (
+              <div
+                style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 7 }}
+              >
+                <button
+                  onClick={() => setShowLoyalty(true)}
+                  style={{
+                    border: '1px solid #343530',
+                    background: '#191a1c',
+                    color: '#9b9990',
+                    borderRadius: 5,
+                    padding: 6,
+                    fontSize: 7,
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'block', color: '#d8b34a', fontWeight: 950 }}>
+                    {customer.loyaltyPoints || 0}
+                  </span>
+                  POINTS / LOYALTY
+                </button>
+                <button
+                  onClick={() => setUsePoints((v) => !v)}
+                  style={{
+                    border: usePoints ? '1px solid #b58e2e' : '1px solid #343530',
+                    background: usePoints ? '#2a2414' : '#191a1c',
+                    color: usePoints ? '#d8b34a' : '#9b9990',
+                    borderRadius: 5,
+                    padding: 6,
+                    fontSize: 7,
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'block', fontWeight: 950 }}>
+                    {usePoints ? 'POINTS ON' : 'POINTS OFF'}
+                  </span>
+                  REDEEM
+                </button>
+              </div>
+            )}
+            {usePoints && customer && (
+              <CFormInput
+                type="number"
+                min="0"
+                value={redeemPoints}
+                onChange={(e) => setRedeemPoints(Math.max(0, Number(e.target.value || 0)))}
+                placeholder="Points to redeem"
+                style={{
+                  height: 29,
+                  marginBottom: 7,
+                  background: '#191a1c',
+                  border: '1px solid #343530',
+                  color: '#eeeae0',
+                  fontSize: 8,
+                }}
+              />
+            )}
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                fontSize: '9px',
-                color: '#6b7280',
-                marginBottom: '6px',
+                color: '#77766f',
+                fontSize: 8,
+                marginBottom: 5,
               }}
             >
               <span>Subtotal</span>
-
-              <strong
-                style={{
-                  color: '#374151',
-                }}
-              >
-                ₦{Number(subtotal || 0).toLocaleString()}
-              </strong>
+              <span>₦{Number(subtotal).toLocaleString()}</span>
             </div>
-
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '9px',
-                color: '#6b7280',
-                marginBottom: '8px',
-              }}
-            >
-              <span>Discount</span>
-
-              <strong
-                style={{
-                  color: '#374151',
-                }}
-              >
-                − ₦{Number(discount || 0).toLocaleString()}
-              </strong>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#f8f3e3',
-                border: '1px solid #ead9a6',
-                borderRadius: '7px',
-                padding: '10px',
-                marginBottom: '9px',
+                justifyContent: 'space-between',
+                marginBottom: 5,
               }}
             >
-              <span
+              <span style={{ color: '#77766f', fontSize: 8 }}>Discount</span>
+              <CFormInput
+                type="number"
+                min="0"
+                value={discount}
+                onChange={(e) => setDiscount(Math.max(0, Number(e.target.value || 0)))}
                 style={{
-                  fontSize: '9px',
-                  fontWeight: 800,
-                  color: '#6b5a24',
+                  width: 90,
+                  height: 25,
+                  padding: '2px 6px',
+                  background: '#191a1c',
+                  border: '1px solid #343530',
+                  color: '#eeeae0',
+                  fontSize: 8,
+                  textAlign: 'right',
                 }}
-              >
-                TOTAL PAYABLE
-              </span>
-
-              <strong
-                style={{
-                  fontSize: '18px',
-                  color: '#9b7412',
-                }}
-              >
-                ₦{Number(total || 0).toLocaleString()}
-              </strong>
+              />
             </div>
-
-            {/* PAYMENT */}
-
-            <CButton
-              color="dark"
-              className="w-100"
-              disabled={!cart.length || processing}
-              onClick={() => setShowPayment(true)}
-              style={{
-                height: '43px',
-                background: '#111111',
-                border: 0,
-                borderRadius: '7px',
-                fontSize: '10px',
-                fontWeight: 900,
-              }}
-            >
-              {processing
-                ? 'PROCESSING...'
-                : `COMPLETE SALE — ₦${Number(total || 0).toLocaleString()}`}
-            </CButton>
-
+            {pointsDiscount > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  color: '#d8b34a',
+                  fontSize: 8,
+                }}
+              >
+                <span>Points Discount</span>
+                <span>- ₦{Number(pointsDiscount).toLocaleString()}</span>
+              </div>
+            )}
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '6px',
-                marginTop: '7px',
+                borderTop: '1px solid #2e2f2b',
+                marginTop: 7,
+                paddingTop: 8,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-end',
               }}
             >
-              <CButton
-                size="sm"
-                color="light"
-                onClick={() => setShowReceiptSearch(true)}
+              <div>
+                <div style={{ color: '#77766f', fontSize: 7 }}>TOTAL DUE</div>
+                <div style={{ color: '#d8b34a', fontSize: 24, lineHeight: 1.05, fontWeight: 950 }}>
+                  ₦{Number(total).toLocaleString()}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', color: '#6e6d66', fontSize: 7 }}>
+                LOYALTY EARNED
+                <div style={{ color: '#c8c5bb', fontWeight: 900 }}>
+                  {Math.floor(total / 1000)} pts
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '92px 1fr', gap: 5, marginTop: 8 }}>
+              <CFormSelect
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
                 style={{
-                  border: '1px solid #e1e4e8',
-                  fontSize: '8px',
-                  fontWeight: 800,
+                  height: 42,
+                  background: '#191a1c',
+                  color: '#e4e1d8',
+                  border: '1px solid #343530',
+                  fontSize: 8,
                 }}
               >
-                <CIcon icon={cilPrint} className="me-1" />
-                Reprint
-              </CButton>
-
-              <CButton
-                size="sm"
-                color="light"
-                onClick={() => setShowHeld(true)}
+                <option value="cash">Cash</option>
+                <option value="transfer">Transfer</option>
+                <option value="pos">POS</option>
+                <option value="mixed">Mixed</option>
+              </CFormSelect>
+              <button
+                onClick={() => setShowPayment(true)}
+                disabled={processing || !cart.length}
                 style={{
-                  border: '1px solid #e1e4e8',
-                  fontSize: '8px',
-                  fontWeight: 800,
+                  height: 42,
+                  border: 0,
+                  borderRadius: 5,
+                  background: cart.length ? '#c9a43b' : '#48463e',
+                  color: '#111',
+                  fontSize: 9,
+                  fontWeight: 950,
                 }}
               >
-                Held Sales
-              </CButton>
+                {processing ? 'PROCESSING...' : 'COMPLETE SALE →'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7 }}>
+              <button
+                onClick={() => cart.length && setShowHold(true)}
+                style={{ border: 0, background: 'transparent', color: '#aaa79c', fontSize: 7 }}
+              >
+                HOLD [F4]
+              </button>
+              <button
+                onClick={() => cart.length && setShowClear(true)}
+                style={{ border: 0, background: 'transparent', color: '#d47777', fontSize: 7 }}
+              >
+                CLEAR [F7]
+              </button>
             </div>
           </div>
         </aside>
       </div>
 
-      {/* =====================================================
-            COLLAPSED SIDEBAR BUTTON
-        ====================================================== */}
-
-      {!sidebarOpen && (
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          style={{
-            position: 'fixed',
-            left: '12px',
-            top: '76px',
-            zIndex: 200,
-            width: '38px',
-            height: '38px',
-            border: '1px solid #d4af37',
-            borderRadius: '7px',
-            background: '#ffffff',
-            color: '#9b7412',
-            cursor: 'pointer',
-            fontSize: '18px',
-            boxShadow: '0 5px 15px rgba(0,0,0,.12)',
-          }}
-        >
-          ☰
-        </button>
-      )}
-
-      {/* =====================================================
-            MODALS
-        ====================================================== */}
-
+      <CModal
+        visible={showVariant}
+        onClose={() => setShowVariant(false)}
+        alignment="center"
+        size="lg"
+      >
+        <CModalHeader>
+          <CModalTitle>Select Variant</CModalTitle>
+        </CModalHeader>
+        <CModalBody style={{ background: '#101114', color: '#f5f1e6' }}>
+          {variantProduct && (
+            <>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ color: '#d8b34a', fontSize: 9, fontWeight: 900 }}>
+                  {catName(variantProduct).toUpperCase()}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 950, marginTop: 4 }}>
+                  {variantProduct.name}
+                </div>
+              </div>
+              <div
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}
+              >
+                {variants(variantProduct).map((v) => {
+                  const stock = Number(v.quantity || 0)
+                  return (
+                    <button
+                      key={v.id}
+                      disabled={!stock}
+                      onClick={() => setVariant(v)}
+                      style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        border: variant?.id === v.id ? '1px solid #d8b34a' : '1px solid #30312d',
+                        borderRadius: 8,
+                        background: variant?.id === v.id ? '#2a2414' : '#191a1c',
+                        color: '#f5f1e6',
+                        opacity: stock ? 1 : 0.45,
+                      }}
+                    >
+                      <div style={{ fontWeight: 900 }}>
+                        {v.size || 'One Size'}
+                        {v.color ? ` • ${v.color}` : ''}
+                      </div>
+                      <div style={{ marginTop: 6, color: '#d8b34a', fontWeight: 900 }}>
+                        ₦{Number(v.sellingPrice || 0).toLocaleString()}
+                      </div>
+                      <div
+                        style={{ marginTop: 4, color: stock ? '#69cf91' : '#d47777', fontSize: 8 }}
+                      >
+                        {stock ? `${stock} available` : 'Out of stock'}
+                      </div>
+                      {v.sku && (
+                        <div style={{ marginTop: 4, color: '#77766f', fontSize: 7 }}>{v.sku}</div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </CModalBody>
+        <CModalFooter style={{ background: '#101114' }}>
+          <CButton color="secondary" onClick={() => setShowVariant(false)}>
+            Cancel
+          </CButton>
+          <button
+            disabled={!variant}
+            onClick={() => {
+              add(variantProduct, variant)
+              setShowVariant(false)
+              setVariant(null)
+              setVariantProduct(null)
+            }}
+            style={{
+              height: 38,
+              padding: '0 18px',
+              border: 0,
+              borderRadius: 5,
+              background: variant ? '#c9a43b' : '#48463e',
+              color: '#111',
+              fontWeight: 950,
+            }}
+          >
+            <CIcon icon={cilCheck} className="me-1" />
+            ADD TO ORDER
+          </button>
+        </CModalFooter>
+      </CModal>
       <CustomerSearchModal
         show={showCustomer}
         onHide={() => setShowCustomer(false)}
         customers={customers}
-        onSelect={(selected) => {
-          setCustomer(selected)
+        onSelect={(c) => {
+          setCustomer(c)
           setShowCustomer(false)
         }}
       />
-
       <PaymentModal
         show={showPayment}
-        onHide={() => {
-          if (!processing) {
-            setShowPayment(false)
-          }
-        }}
+        onHide={() => setShowPayment(false)}
         total={total}
         onSubmit={complete}
         processing={processing}
+        staff={staff}
         currentUser={user}
+        cart={cart}
       />
-
-      {showReceipt && (
-        <ReceiptModal
-          show={showReceipt}
-          sale={sale}
-          onHide={() => {
-            setShowReceipt(false)
-            setSale(null)
-          }}
-        />
-      )}
-
+      <ReceiptModal
+        show={showReceipt}
+        settings={settings}
+        onHide={() => setShowReceipt(false)}
+        sale={sale}
+      />
       <HoldSaleModal
         show={showHold}
         onHide={() => setShowHold(false)}
@@ -2006,7 +1496,6 @@ const POSPage = () => {
         cartCount={cart.length}
         onSave={hold}
       />
-
       <NewCustomerModal
         show={showNewCustomer}
         onHide={() => setShowNewCustomer(false)}
@@ -2016,14 +1505,12 @@ const POSPage = () => {
           setShowNewCustomer(false)
         }}
       />
-
       <ShowHeldSalesModal
         show={showHeld}
         onHide={() => setShowHeld(false)}
         heldSales={heldSales}
         onRestore={restore}
       />
-
       <LoyaltyLookupModal
         visible={showLoyalty}
         onClose={() => setShowLoyalty(false)}
@@ -2032,9 +1519,7 @@ const POSPage = () => {
         onSearch={loyalty}
         cardResult={cardResult}
       />
-
       <BarcodeModal visible={showBarcode} onClose={() => setShowBarcode(false)} />
-
       <ClearCartModal
         visible={showClear}
         onClose={() => {
@@ -2042,18 +1527,12 @@ const POSPage = () => {
           setShowClear(false)
         }}
       />
-
       <DailyReportModal
         visible={showReport}
         onClose={() => setShowReport(false)}
         report={report}
         loading={reportLoading}
       />
-
-      {/* =====================================================
-            REPRINT RECEIPT
-        ====================================================== */}
-
       <CModal
         visible={showReceiptSearch}
         onClose={() => {
@@ -2070,87 +1549,42 @@ const POSPage = () => {
             Reprint Receipt
           </CModalTitle>
         </CModalHeader>
-
         <CModalBody>
           <div className="d-flex gap-2 mb-4">
             <CFormInput
               value={receiptSearch}
               placeholder="Receipt number, customer name or sale ID"
               onChange={(e) => setReceiptSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  searchReceipts()
-                }
-              }}
+              onKeyDown={(e) => e.key === 'Enter' && searchReceipts()}
             />
-
             <CButton
               color="primary"
               onClick={searchReceipts}
               disabled={receiptLoading || !receiptSearch.trim()}
             >
+              <CIcon icon={cilChart} className="me-1" />
               Search
             </CButton>
           </div>
-
           {receiptLoading && <div className="text-center py-4">Searching sales...</div>}
-
-          {receiptResults.map((item) => (
+          {receiptResults.map((x) => (
             <div
-              key={item.id}
-              style={{
-                border: '1px solid #e5e7eb',
-                borderRadius: '9px',
-                padding: '12px',
-                marginBottom: '8px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
+              key={x.id}
+              className="d-flex justify-content-between align-items-center p-3 mb-2"
+              style={{ border: '1px solid #e9ecef', borderRadius: 10 }}
             >
               <div>
-                <div
-                  style={{
-                    fontWeight: 800,
-                  }}
-                >
-                  {item.receiptNumber || `SALE-${item.id}`}
+                <div className="fw-bold">{x.receiptNumber || `SALE-${x.id}`}</div>
+                <div className="small text-medium-emphasis">
+                  {x.customer?.fullname || x.Customer?.fullname || 'Walk-in Customer'}
                 </div>
-
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: '#6b7280',
-                  }}
-                >
-                  {item.customer?.fullname || item.Customer?.fullname || 'Walk-in Customer'}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '10px',
-                    color: '#9ca3af',
-                  }}
-                >
-                  {item.createdAt ? new Date(item.createdAt).toLocaleString() : '-'}
+                <div className="small text-medium-emphasis">
+                  {x.createdAt ? new Date(x.createdAt).toLocaleString() : '-'}
                 </div>
               </div>
-
-              <div
-                style={{
-                  textAlign: 'right',
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: 900,
-                    marginBottom: '7px',
-                  }}
-                >
-                  ₦{Number(item.totalAmount || 0).toLocaleString()}
-                </div>
-
-                <CButton color="dark" size="sm" onClick={() => reprint(item.id)}>
+              <div className="text-end">
+                <div className="fw-bold mb-2">₦{Number(x.totalAmount || 0).toLocaleString()}</div>
+                <CButton color="dark" size="sm" onClick={() => reprint(x.id)}>
                   <CIcon icon={cilPrint} className="me-1" />
                   Reprint
                 </CButton>
