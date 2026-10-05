@@ -33,8 +33,8 @@ import ClearCartModal from '../pos/ClearCartModal'
 import DailyReportModal from '../pos/DailyReport'
 import ShowHeldSalesModal from './ShowHeldSalesModal'
 
-const API_ROOT = import.meta.env.VITE_BACKEND_URL
-const API_URL = `${API_ROOT}api/v1`
+const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
+const API_URL = `${API_ROOT}/api/v1`
 
 const POSPage = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -746,6 +746,32 @@ const POSPage = () => {
       icon: '⚙',
     },
   ]
+  // ==========================================================
+  // PRODUCT CATALOG
+  // Keep the original add/select logic.
+  // Products with variants open the variant selector.
+  // Products without variants go directly into the cart.
+  // ==========================================================
+
+  const getProductStock = (product) => {
+    const vs = variants(product)
+
+    if (vs.length > 0) {
+      return vs.reduce((sum, v) => sum + Number(v?.quantity || 0), 0)
+    }
+
+    return Number(product?.quantity || 0)
+  }
+
+  const handleCatalogClick = (product) => {
+    if (getProductStock(product) <= 0) {
+      alert('This item is out of stock.')
+      return
+    }
+
+    selectProduct(product)
+  }
+
   return (
     <div
       style={{
@@ -1014,9 +1040,9 @@ const POSPage = () => {
         <aside
           style={{
             overflow: 'hidden',
-            background: '#191a1d',
-            color: '#ffffff',
-            borderRight: '1px solid #292a2d',
+            background: '#ffffff',
+            color: '#1f2937',
+            borderRight: '1px solid #e5e7eb',
           }}
         >
           <div
@@ -1032,7 +1058,7 @@ const POSPage = () => {
               style={{
                 fontSize: '8px',
                 fontWeight: 800,
-                color: '#73767d',
+                color: '#8b8f97',
                 letterSpacing: '1.2px',
                 padding: '5px 10px 10px',
               }}
@@ -1048,10 +1074,10 @@ const POSPage = () => {
                 style={{
                   width: '100%',
                   height: '40px',
-                  border: item.active ? '1px solid #5a4920' : '1px solid transparent',
+                  border: item.active ? '1px solid #ead9a6' : '1px solid transparent',
                   borderRadius: '7px',
-                  background: item.active ? '#302818' : 'transparent',
-                  color: item.active ? '#d4af37' : '#b5b7bc',
+                  background: item.active ? '#fff8df' : 'transparent',
+                  color: item.active ? '#9b7412' : '#4b5563',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
@@ -1071,8 +1097,8 @@ const POSPage = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: item.active ? '#d4af37' : '#242529',
-                    color: item.active ? '#111111' : '#858890',
+                    background: item.active ? '#d4af37' : '#f1f3f5',
+                    color: item.active ? '#111111' : '#6b7280',
                     fontWeight: 900,
                   }}
                 >
@@ -1086,7 +1112,7 @@ const POSPage = () => {
             <div
               style={{
                 marginTop: 'auto',
-                borderTop: '1px solid #2b2c30',
+                borderTop: '1px solid #e5e7eb',
                 paddingTop: '12px',
               }}
             >
@@ -1096,10 +1122,10 @@ const POSPage = () => {
                 style={{
                   width: '100%',
                   height: '36px',
-                  border: '1px solid #333438',
+                  border: '1px solid #dfe3e8',
                   borderRadius: '7px',
-                  background: '#222327',
-                  color: '#aaaeb5',
+                  background: '#f8f9fa',
+                  color: '#6b7280',
                   fontSize: '8px',
                   cursor: 'pointer',
                 }}
@@ -1409,7 +1435,7 @@ const POSPage = () => {
 
                         <CButton
                           size="sm"
-                          onClick={() => addToCart(product)}
+                          onClick={() => handleCatalogClick(product)}
                           style={{
                             background: '#111111',
                             color: '#ffffff',
@@ -1640,7 +1666,7 @@ const POSPage = () => {
 
                     <button
                       type="button"
-                      onClick={() => removeFromCart(index)}
+                      onClick={() => remove(item)}
                       style={{
                         border: 0,
                         background: 'transparent',
@@ -1669,9 +1695,7 @@ const POSPage = () => {
                     >
                       <button
                         type="button"
-                        onClick={() =>
-                          updateCartQuantity(index, Math.max(1, Number(item.quantity || 1) - 1))
-                        }
+                        onClick={() => dec(item)}
                         style={{
                           width: '24px',
                           height: '24px',
@@ -1697,7 +1721,7 @@ const POSPage = () => {
 
                       <button
                         type="button"
-                        onClick={() => updateCartQuantity(index, Number(item.quantity || 1) + 1)}
+                        onClick={() => inc(item)}
                         style={{
                           width: '24px',
                           height: '24px',
@@ -1898,6 +1922,95 @@ const POSPage = () => {
       {/* =====================================================
             MODALS
         ====================================================== */}
+
+      {/* =====================================================
+            PRODUCT VARIANT SELECTOR
+        ====================================================== */}
+
+      <CModal
+        visible={showVariant}
+        onClose={() => {
+          setShowVariant(false)
+          setVariantProduct(null)
+          setVariant(null)
+        }}
+        alignment="center"
+        size="lg"
+      >
+        <CModalHeader>
+          <CModalTitle>
+            Select {variantProduct?.name || 'Product Variant'}
+          </CModalTitle>
+        </CModalHeader>
+
+        <CModalBody>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+              gap: '10px',
+            }}
+          >
+            {variants(variantProduct).map((v) => {
+              const stock = Number(v?.quantity || 0)
+              const selected = Number(variant?.id) === Number(v?.id)
+
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  disabled={stock <= 0}
+                  onClick={() => setVariant(v)}
+                  style={{
+                    border: selected ? '2px solid #d4af37' : '1px solid #e5e7eb',
+                    borderRadius: '10px',
+                    background: selected ? '#fff8df' : '#ffffff',
+                    padding: '12px',
+                    textAlign: 'left',
+                    cursor: stock > 0 ? 'pointer' : 'not-allowed',
+                    opacity: stock > 0 ? 1 : .45,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: '11px' }}>
+                    {[v.size, v.color].filter(Boolean).join(' / ') || 'Standard'}
+                  </div>
+                  <div style={{ marginTop: 5, fontWeight: 900, fontSize: '13px' }}>
+                    ₦{Number(v.sellingPrice ?? variantProduct?.sellingPrice ?? 0).toLocaleString()}
+                  </div>
+                  <div style={{ marginTop: 5, fontSize: '9px', color: stock > 0 ? '#18834a' : '#b42318' }}>
+                    {stock > 0 ? `${stock} IN STOCK` : 'OUT OF STOCK'}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </CModalBody>
+
+        <CModalFooter>
+          <CButton
+            color="light"
+            onClick={() => {
+              setShowVariant(false)
+              setVariantProduct(null)
+              setVariant(null)
+            }}
+          >
+            Cancel
+          </CButton>
+          <CButton
+            color="dark"
+            disabled={!variant || Number(variant?.quantity || 0) <= 0}
+            onClick={() => {
+              add(variantProduct, variant)
+              setShowVariant(false)
+              setVariantProduct(null)
+              setVariant(null)
+            }}
+          >
+            Add to Cart
+          </CButton>
+        </CModalFooter>
+      </CModal>
 
       <CustomerSearchModal
         show={showCustomer}
