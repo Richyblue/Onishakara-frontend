@@ -713,7 +713,8 @@ const EditProduct = () => {
 
               <CCardBody
                 style={{
-                  background: 'transparent',
+                  background: '#111',
+                  color: '#ffffff',
                 }}
               >
                 <CForm onSubmit={handleSubmit}>
@@ -843,6 +844,7 @@ const EditProduct = () => {
                           style={{
                             background: '#181818',
                             border: '1px solid #2d2d2d',
+                            color: '#ffffff',
                           }}
                         >
                           <small className="text-body-secondary">Expected Profit</small>
@@ -859,6 +861,7 @@ const EditProduct = () => {
                           style={{
                             background: '#181818',
                             border: '1px solid #2d2d2d',
+                            color: '#ffffff',
                           }}
                         >
                           <small className="text-body-secondary">Profit Margin</small>
@@ -925,7 +928,7 @@ const EditProduct = () => {
                 Inventory Management
               </CCardHeader>
 
-              <CCardBody style={{ background: 'transparent' }}>
+              <CCardBody style={{ background: '#111', color: '#ffffff', }}>
                 <CRow className="g-3 mb-4">
                   <CCol md={4}>
                     <div className="p-3 rounded bg-dark">
@@ -1084,7 +1087,7 @@ const EditProduct = () => {
                 Product Variants
               </CCardHeader>
 
-              <CCardBody style={{ background: 'transparent' }}>
+              <CCardBody style={{ background: '#111', color: '#ffffff', }}>
                 {hasVariants ? (
                   <div className="table-responsive mb-4">
                     <CTable
@@ -1372,7 +1375,8 @@ const EditProduct = () => {
 
               <CCardBody
                 style={{
-                  background: 'transparent',
+                  background: '#111',
+                  color: '#ffffff',
                 }}
               >
                 <div
@@ -1463,7 +1467,7 @@ const EditProduct = () => {
                 Product Overview
               </CCardHeader>
 
-              <CCardBody style={{ background: 'transparent' }}>
+              <CCardBody style={{ background: '#111', color: '#ffffff', }}>
                 <div className="mb-3">
                   <small className="text-body-secondary">Product</small>
 
