@@ -625,7 +625,7 @@ const EditProduct = () => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'transparent',
+        background: 'linear-gradient(135deg, #090909 0%, #111111 45%, #191919 100%)',
         color: '#f5f5f5',
         paddingBottom: 50,
       }}
@@ -713,7 +713,7 @@ const EditProduct = () => {
 
               <CCardBody
                 style={{
-                  background: '#111',
+                  background: 'transparent',
                 }}
               >
                 <CForm onSubmit={handleSubmit}>
@@ -925,7 +925,7 @@ const EditProduct = () => {
                 Inventory Management
               </CCardHeader>
 
-              <CCardBody style={{ background: '#111' }}>
+              <CCardBody style={{ background: 'transparent' }}>
                 <CRow className="g-3 mb-4">
                   <CCol md={4}>
                     <div className="p-3 rounded bg-dark">
@@ -1084,7 +1084,7 @@ const EditProduct = () => {
                 Product Variants
               </CCardHeader>
 
-              <CCardBody style={{ background: '#111' }}>
+              <CCardBody style={{ background: 'transparent' }}>
                 {hasVariants ? (
                   <div className="table-responsive mb-4">
                     <CTable
@@ -1372,7 +1372,7 @@ const EditProduct = () => {
 
               <CCardBody
                 style={{
-                  background: '#111',
+                  background: 'transparent',
                 }}
               >
                 <div
@@ -1463,7 +1463,7 @@ const EditProduct = () => {
                 Product Overview
               </CCardHeader>
 
-              <CCardBody style={{ background: '#111' }}>
+              <CCardBody style={{ background: 'transparent' }}>
                 <div className="mb-3">
                   <small className="text-body-secondary">Product</small>
 
