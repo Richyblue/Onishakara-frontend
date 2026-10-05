@@ -360,11 +360,18 @@ const AddProduct = () => {
        * When no variants exist, use the main
        * product quantity.
        */
-      if (variants.length === 0) {
-        payload.append('quantity', Number(formData.quantity || 0))
-      } else {
-        payload.append('quantity', 0)
-      }
+      // if (variants.length === 0) {
+      //   payload.append('quantity', Number(formData.quantity || 0))
+      // } else {
+      //   payload.append('quantity', 0)
+      // }
+
+      const productQuantity =
+        variants.length > 0
+          ? variants.reduce((total, variant) => total + Number(variant.quantity || 0), 0)
+          : Number(formData.quantity || 0)
+
+      payload.append('quantity', productQuantity)
 
       payload.append('reorderLevel', Number(formData.reorderLevel || 5))
 
@@ -931,7 +938,8 @@ const AddProduct = () => {
 
                     {variants.length > 0 && (
                       <small className="text-muted">
-                        Variant quantities will manage this product's stock.
+                        Product stock will automatically start with the total quantity of all
+                        variants. You can still adjust stock later from Stock Management.
                       </small>
                     )}
                   </CCol>
