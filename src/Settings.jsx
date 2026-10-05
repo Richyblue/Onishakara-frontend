@@ -1,105 +1,141 @@
+import React, { useEffect, useMemo, useState } from 'react'
 import {
+  CAlert,
+  CBadge,
+  CButton,
   CCard,
   CCardBody,
   CCardHeader,
-  CForm,
-  CFormInput,
-  CFormTextarea,
-  CFormCheck,
-  CFormSelect,
-  CButton,
-  CRow,
   CCol,
+  CForm,
+  CFormCheck,
+  CFormInput,
+  CFormSelect,
+  CFormTextarea,
+  CRow,
   CSpinner,
-  CAlert,
 } from '@coreui/react'
-
-import { useEffect, useState } from 'react'
 import axios from 'axios'
 import Swal from 'sweetalert2'
 
 const Settings = () => {
-  const API_URL = import.meta.env.VITE_BACKEND_URL
+  const API_URL = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '') + '/'
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [lastSaved, setLastSaved] = useState(null)
 
   const [formData, setFormData] = useState({
-    // Company Information
-    companyName: '',
+    // =========================================================
+    // STORE PROFILE
+    // =========================================================
+    companyName: 'ONISHAKARA GOLD FASHION STORE',
     companyPhone: '',
     companyEmail: '',
     companyAddress: '',
+    timezone: 'Africa/Lagos',
 
-    // Financial Settings
+    // =========================================================
+    // FINANCIAL
+    // =========================================================
     currency: 'NGN',
     currencySymbol: '₦',
-    defaultCommissionRate: 10,
-    loyaltyPointRate: 1,
     taxRate: 0,
+    loyaltyPointRate: 1,
 
-    // Inventory and Sales
-    lowStockThreshold: 5,
-    allowNegativeStock: false,
+    // =========================================================
+    // SALES / POS
+    // =========================================================
     autoApproveSales: true,
+    allowNegativeStock: false,
 
-    // Receipt
+    // =========================================================
+    // INVENTORY
+    // =========================================================
+    lowStockThreshold: 5,
+
+    // =========================================================
+    // RECEIPT
+    // =========================================================
     receiptFooter: '',
 
-    // Business Hours
+    // =========================================================
+    // BUSINESS HOURS
+    // =========================================================
     openingTime: '08:00',
     closingTime: '17:00',
     workingHours: 8,
     gracePeriod: 15,
-    earlyClockInMinutes: 0,
-    timezone: 'Africa/Lagos',
-
-    // Attendance and Kiosk
-    movementTrackingEnabled: true,
-    requireReasonForMovement: true,
-    qrAttendanceEnabled: true,
-    kioskModeEnabled: true,
-    allowClockOutWithoutReturn: false,
-
-    // Penalty Settings
-    allowPenalty: false,
-    penaltyRate: 0,
-    penaltyBasis: 'fixed_amount',
-    defaultPenaltyAmount: 0,
-
-    latePenaltyEnabled: false,
-    absentPenaltyEnabled: false,
-    movementOverstayPenaltyEnabled: false,
-    overtimePenaltyEnabled: false,
-
-    latePenaltyPercent: 0,
-    overStayPenaltyPercent: 0,
   })
 
+  // ---------------------------------------------------------
+  // CURRENCY SYMBOLS
+  // ---------------------------------------------------------
+  const currencySymbols = {
+    NGN: '₦',
+    USD: '$',
+    GBP: '£',
+    EUR: '€',
+  }
+
+  // ---------------------------------------------------------
+  // API CONFIG
+  // ---------------------------------------------------------
+  const getAuthConfig = () => {
+    const token = localStorage.getItem('token')
+
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  }
+
+  // ---------------------------------------------------------
+  // LOAD SETTINGS
+  // ---------------------------------------------------------
   const getSettings = async () => {
     try {
       setLoading(true)
       setError('')
 
-      const token = localStorage.getItem('token')
+      const response = await axios.get(`${API_URL}api/v1/settings`, getAuthConfig())
 
-      const response = await axios.get(`${API_URL}api/v1/settings`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      const settings = response?.data?.settings || response?.data?.data || {}
 
       setFormData((previous) => ({
         ...previous,
-        ...(response.data.settings || {}),
-      }))
-    } catch (error) {
-      console.error('Failed to load settings:', error)
+        ...settings,
 
-      setError(
-        error.response?.data?.message || 'Unable to load company settings. Please try again.',
-      )
+        // Make sure numeric fields remain numbers
+        taxRate: settings.taxRate !== undefined ? Number(settings.taxRate) : previous.taxRate,
+
+        loyaltyPointRate:
+          settings.loyaltyPointRate !== undefined
+            ? Number(settings.loyaltyPointRate)
+            : previous.loyaltyPointRate,
+
+        lowStockThreshold:
+          settings.lowStockThreshold !== undefined
+            ? Number(settings.lowStockThreshold)
+            : previous.lowStockThreshold,
+
+        workingHours:
+          settings.workingHours !== undefined
+            ? Number(settings.workingHours)
+            : previous.workingHours,
+
+        gracePeriod:
+          settings.gracePeriod !== undefined ? Number(settings.gracePeriod) : previous.gracePeriod,
+
+        taxRate: settings.taxRate !== undefined ? Number(settings.taxRate) : previous.taxRate,
+      }))
+    } catch (err) {
+      console.error('Failed to load settings:', err)
+
+      setError(err?.response?.data?.message || 'Unable to load store settings. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -109,8 +145,11 @@ const Settings = () => {
     getSettings()
   }, [])
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
+  // ---------------------------------------------------------
+  // HANDLE INPUT
+  // ---------------------------------------------------------
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target
 
     setFormData((previous) => ({
       ...previous,
@@ -118,604 +157,913 @@ const Settings = () => {
     }))
   }
 
-  const saveSettings = async (e) => {
-    e.preventDefault()
+  // ---------------------------------------------------------
+  // HANDLE CURRENCY
+  // ---------------------------------------------------------
+  const handleCurrencyChange = (event) => {
+    const currency = event.target.value
+
+    setFormData((previous) => ({
+      ...previous,
+      currency,
+      currencySymbol: currencySymbols[currency] || previous.currencySymbol,
+    }))
+  }
+
+  // ---------------------------------------------------------
+  // VALIDATE SETTINGS
+  // ---------------------------------------------------------
+  const validateSettings = () => {
+    if (!String(formData.companyName || '').trim()) {
+      return 'Store name is required.'
+    }
+
+    const taxRate = Number(formData.taxRate)
+
+    if (Number.isNaN(taxRate) || taxRate < 0 || taxRate > 100) {
+      return 'Tax rate must be between 0% and 100%.'
+    }
+
+    const loyaltyPointRate = Number(formData.loyaltyPointRate)
+
+    if (Number.isNaN(loyaltyPointRate) || loyaltyPointRate < 0) {
+      return 'Loyalty point rate cannot be negative.'
+    }
+
+    const lowStockThreshold = Number(formData.lowStockThreshold)
+
+    if (Number.isNaN(lowStockThreshold) || lowStockThreshold < 0) {
+      return 'Low-stock threshold cannot be negative.'
+    }
+
+    const workingHours = Number(formData.workingHours)
+
+    if (Number.isNaN(workingHours) || workingHours < 0 || workingHours > 24) {
+      return 'Working hours must be between 0 and 24.'
+    }
+
+    const gracePeriod = Number(formData.gracePeriod)
+
+    if (Number.isNaN(gracePeriod) || gracePeriod < 0) {
+      return 'Grace period cannot be negative.'
+    }
+
+    return null
+  }
+
+  // ---------------------------------------------------------
+  // SAVE SETTINGS
+  // ---------------------------------------------------------
+  const saveSettings = async (event) => {
+    event.preventDefault()
+
+    const validationError = validateSettings()
+
+    if (validationError) {
+      setError(validationError)
+
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Check Settings',
+        text: validationError,
+        confirmButtonColor: '#b08d57',
+      })
+
+      return
+    }
 
     try {
       setSaving(true)
       setError('')
 
-      const token = localStorage.getItem('token')
+      const payload = {
+        companyName: String(formData.companyName || '').trim(),
+        companyPhone: String(formData.companyPhone || '').trim(),
+        companyEmail: String(formData.companyEmail || '').trim(),
+        companyAddress: String(formData.companyAddress || '').trim(),
 
-      await axios.put(`${API_URL}api/v1/settings`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+        currency: formData.currency,
+        currencySymbol: formData.currencySymbol,
 
-      Swal.fire({
+        taxRate: Number(formData.taxRate || 0),
+        loyaltyPointRate: Number(formData.loyaltyPointRate || 0),
+
+        lowStockThreshold: Number(formData.lowStockThreshold || 0),
+        allowNegativeStock: Boolean(formData.allowNegativeStock),
+
+        autoApproveSales: Boolean(formData.autoApproveSales),
+
+        receiptFooter: String(formData.receiptFooter || '').trim(),
+
+        openingTime: formData.openingTime,
+        closingTime: formData.closingTime,
+        workingHours: Number(formData.workingHours || 0),
+        gracePeriod: Number(formData.gracePeriod || 0),
+
+        timezone: formData.timezone,
+      }
+
+      const response = await axios.put(`${API_URL}api/v1/settings`, payload, getAuthConfig())
+
+      const savedSettings = response?.data?.settings || response?.data?.data || payload
+
+      setFormData((previous) => ({
+        ...previous,
+        ...savedSettings,
+      }))
+
+      setLastSaved(new Date())
+
+      await Swal.fire({
         icon: 'success',
-        title: 'Settings Updated',
-        text: 'Your company settings have been saved successfully.',
-        confirmButtonColor: '#321fdb',
+        title: 'Settings Saved',
+        text: 'Your Onishakara store settings have been updated successfully.',
+        confirmButtonColor: '#b08d57',
+        timer: 2200,
+        showConfirmButton: false,
       })
-    } catch (error) {
-      console.error('Failed to update settings:', error)
+    } catch (err) {
+      console.error('Failed to update settings:', err)
 
       const message =
-        error.response?.data?.message || 'Settings could not be updated. Please try again.'
+        err?.response?.data?.message || 'Settings could not be updated. Please try again.'
 
       setError(message)
 
-      Swal.fire({
+      await Swal.fire({
         icon: 'error',
         title: 'Update Failed',
         text: message,
+        confirmButtonColor: '#b08d57',
       })
     } finally {
       setSaving(false)
     }
   }
 
+  // ---------------------------------------------------------
+  // RESET LOCAL FORM TO DEFAULTS
+  // ---------------------------------------------------------
+  const resetForm = async () => {
+    const result = await Swal.fire({
+      icon: 'warning',
+      title: 'Reset Form?',
+      text: 'This will restore the form to the recommended Onishakara defaults. Nothing will be saved until you click Save Settings.',
+      showCancelButton: true,
+      confirmButtonText: 'Reset',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#b08d57',
+    })
+
+    if (!result.isConfirmed) return
+
+    setFormData({
+      companyName: 'ONISHAKARA GOLD FASHION STORE',
+      companyPhone: '',
+      companyEmail: '',
+      companyAddress: '',
+      timezone: 'Africa/Lagos',
+
+      currency: 'NGN',
+      currencySymbol: '₦',
+      taxRate: 0,
+      loyaltyPointRate: 1,
+
+      autoApproveSales: true,
+      allowNegativeStock: false,
+
+      lowStockThreshold: 5,
+
+      receiptFooter: 'Thank you for shopping with Onishakara Gold Fashion Store.',
+
+      openingTime: '08:00',
+      closingTime: '17:00',
+      workingHours: 8,
+      gracePeriod: 15,
+    })
+
+    setError('')
+  }
+
+  // ---------------------------------------------------------
+  // STORE STATUS
+  // ---------------------------------------------------------
+  const storeStatus = useMemo(() => {
+    const name = String(formData.companyName || '').trim()
+
+    if (!name) {
+      return {
+        text: 'Incomplete',
+        color: 'warning',
+      }
+    }
+
+    return {
+      text: 'Configured',
+      color: 'success',
+    }
+  }, [formData.companyName])
+
+  // ---------------------------------------------------------
+  // LOADING
+  // ---------------------------------------------------------
   if (loading) {
     return (
-      <div className="d-flex justify-content-center align-items-center py-5">
-        <CSpinner color="primary" />
+      <div
+        className="d-flex flex-column justify-content-center align-items-center"
+        style={{ minHeight: '65vh' }}
+      >
+        <div
+          className="rounded-circle d-flex align-items-center justify-content-center mb-3"
+          style={{
+            width: 64,
+            height: 64,
+            background: '#161616',
+            border: '1px solid #b08d57',
+          }}
+        >
+          <CSpinner
+            size="sm"
+            style={{
+              color: '#d4af37',
+            }}
+          />
+        </div>
+
+        <div className="fw-semibold">Loading Store Settings</div>
+
+        <small className="text-medium-emphasis">Preparing your retail configuration...</small>
       </div>
     )
   }
 
+  // ---------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------
   return (
-    <CCard className="shadow-sm">
-      <CCardHeader className="d-flex justify-content-between align-items-center">
-        <div>
-          <h5 className="mb-1">System Settings</h5>
-          <small className="text-medium-emphasis">
-            Manage your company, sales, inventory, attendance and penalty rules.
-          </small>
-        </div>
-      </CCardHeader>
+    <div className="settings-page pb-5">
+      {/* =====================================================
+          PAGE HEADER
+      ====================================================== */}
+      <CCard
+        className="border-0 shadow-sm mb-4 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #111111 0%, #242424 60%, #111111 100%)',
+          color: '#fff',
+        }}
+      >
+        <CCardBody className="p-4 p-lg-5">
+          <CRow className="align-items-center">
+            <CCol lg={8}>
+              <div className="d-flex align-items-center gap-3">
+                <div
+                  className="d-flex align-items-center justify-content-center rounded-3"
+                  style={{
+                    width: 58,
+                    height: 58,
+                    background: 'rgba(212,175,55,.12)',
+                    border: '1px solid rgba(212,175,55,.45)',
+                    color: '#d4af37',
+                    fontSize: 25,
+                    fontWeight: 700,
+                  }}
+                >
+                  OG
+                </div>
 
-      <CCardBody>
-        {error && (
-          <CAlert color="danger" dismissible onClose={() => setError('')}>
-            {error}
-          </CAlert>
-        )}
+                <div>
+                  <div
+                    className="text-uppercase small fw-semibold mb-1"
+                    style={{
+                      color: '#d4af37',
+                      letterSpacing: '2px',
+                    }}
+                  >
+                    Administration
+                  </div>
 
-        <CForm onSubmit={saveSettings}>
-          {/* =====================================================
-              COMPANY INFORMATION
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>1. Company Information</strong>
-            </CCardHeader>
+                  <h3 className="mb-1 fw-bold">Store Settings</h3>
 
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={6}>
-                  <CFormInput
-                    label="Company Name"
-                    name="companyName"
-                    value={formData.companyName || ''}
-                    onChange={handleChange}
-                    required
-                  />
-                </CCol>
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,.68)',
+                    }}
+                  >
+                    Configure your fashion retail, POS, inventory and receipt operations.
+                  </div>
+                </div>
+              </div>
+            </CCol>
 
-                <CCol md={6}>
-                  <CFormInput
-                    label="Company Phone"
-                    name="companyPhone"
-                    value={formData.companyPhone || ''}
-                    onChange={handleChange}
-                  />
-                </CCol>
+            <CCol lg={4} className="mt-4 mt-lg-0 d-flex justify-content-lg-end">
+              <div className="text-lg-end">
+                <div className="small mb-2 opacity-75">Configuration Status</div>
 
-                <CCol md={6}>
-                  <CFormInput
-                    type="email"
-                    label="Company Email"
-                    name="companyEmail"
-                    value={formData.companyEmail || ''}
-                    onChange={handleChange}
-                  />
-                </CCol>
+                <CBadge color={storeStatus.color} className="px-3 py-2 rounded-pill">
+                  {storeStatus.text}
+                </CBadge>
 
-                <CCol md={6}>
-                  <CFormSelect
-                    label="Timezone"
-                    name="timezone"
-                    value={formData.timezone || 'Africa/Lagos'}
-                    onChange={handleChange}
-                    options={[
-                      {
-                        label: 'Africa/Lagos — Nigeria',
-                        value: 'Africa/Lagos',
-                      },
-                      {
-                        label: 'UTC',
-                        value: 'UTC',
-                      },
-                    ]}
-                  />
-                </CCol>
+                {lastSaved && (
+                  <div className="small mt-2" style={{ color: 'rgba(255,255,255,.55)' }}>
+                    Last saved{' '}
+                    {lastSaved.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </div>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+        </CCardBody>
+      </CCard>
 
-                <CCol md={12}>
-                  <CFormTextarea
-                    rows={3}
-                    label="Company Address"
-                    name="companyAddress"
-                    value={formData.companyAddress || ''}
-                    onChange={handleChange}
-                  />
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
+      {error && (
+        <CAlert color="danger" dismissible onClose={() => setError('')} className="shadow-sm">
+          <strong>Settings Error:</strong> {error}
+        </CAlert>
+      )}
 
-          {/* =====================================================
-              FINANCIAL AND SALES SETTINGS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>2. Financial & Sales Settings</strong>
-            </CCardHeader>
+      <CForm onSubmit={saveSettings}>
+        {/* =====================================================
+            1. STORE PROFILE
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <div className="fw-bold fs-5">Store Profile</div>
 
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={4}>
-                  <CFormSelect
-                    label="Currency"
-                    name="currency"
-                    value={formData.currency || 'NGN'}
-                    onChange={handleChange}
-                    options={[
-                      { label: 'Nigerian Naira — NGN', value: 'NGN' },
-                      { label: 'US Dollar — USD', value: 'USD' },
-                      { label: 'British Pound — GBP', value: 'GBP' },
-                      { label: 'Euro — EUR', value: 'EUR' },
-                    ]}
-                  />
-                </CCol>
+                <small className="text-medium-emphasis">
+                  Basic information displayed throughout your retail system.
+                </small>
+              </div>
 
-                <CCol md={4}>
-                  <CFormInput
-                    label="Currency Symbol"
-                    name="currencySymbol"
-                    value={formData.currencySymbol || ''}
-                    onChange={handleChange}
-                  />
-                </CCol>
+              <CBadge
+                className="rounded-pill px-3 py-2"
+                style={{
+                  background: 'rgba(176,141,87,.12)',
+                  color: '#8b6b36',
+                }}
+              >
+                STORE
+              </CBadge>
+            </div>
+          </CCardHeader>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    label="Default Commission Rate (%)"
-                    name="defaultCommissionRate"
-                    value={formData.defaultCommissionRate ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+          <CCardBody className="p-4">
+            <CRow className="g-4">
+              <CCol md={6}>
+                <CFormInput
+                  label="Store Name"
+                  name="companyName"
+                  value={formData.companyName || ''}
+                  onChange={handleChange}
+                  required
+                  placeholder="ONISHAKARA GOLD FASHION STORE"
+                />
+              </CCol>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    label="Loyalty Point Rate"
-                    name="loyaltyPointRate"
-                    value={formData.loyaltyPointRate ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+              <CCol md={6}>
+                <CFormInput
+                  label="Store Phone"
+                  name="companyPhone"
+                  value={formData.companyPhone || ''}
+                  onChange={handleChange}
+                  placeholder="+234..."
+                />
+              </CCol>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    label="Tax Rate (%)"
-                    name="taxRate"
-                    value={formData.taxRate ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+              <CCol md={6}>
+                <CFormInput
+                  type="email"
+                  label="Store Email"
+                  name="companyEmail"
+                  value={formData.companyEmail || ''}
+                  onChange={handleChange}
+                  placeholder="store@example.com"
+                />
+              </CCol>
 
-                <CCol md={4}>
+              <CCol md={6}>
+                <CFormSelect
+                  label="Business Timezone"
+                  name="timezone"
+                  value={formData.timezone || 'Africa/Lagos'}
+                  onChange={handleChange}
+                  options={[
+                    {
+                      label: 'Africa/Lagos — Nigeria',
+                      value: 'Africa/Lagos',
+                    },
+                    {
+                      label: 'UTC',
+                      value: 'UTC',
+                    },
+                  ]}
+                />
+              </CCol>
+
+              <CCol xs={12}>
+                <CFormTextarea
+                  rows={3}
+                  label="Store Address"
+                  name="companyAddress"
+                  value={formData.companyAddress || ''}
+                  onChange={handleChange}
+                  placeholder="Enter the full store address..."
+                />
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
+
+        {/* =====================================================
+            2. CURRENCY & FINANCIAL
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Currency & Financial Settings</div>
+
+            <small className="text-medium-emphasis">
+              Configure how prices, taxes and loyalty points are handled.
+            </small>
+          </CCardHeader>
+
+          <CCardBody className="p-4">
+            <CRow className="g-4">
+              <CCol md={4}>
+                <CFormSelect
+                  label="Store Currency"
+                  name="currency"
+                  value={formData.currency || 'NGN'}
+                  onChange={handleCurrencyChange}
+                  options={[
+                    {
+                      label: 'Nigerian Naira — NGN',
+                      value: 'NGN',
+                    },
+                    {
+                      label: 'US Dollar — USD',
+                      value: 'USD',
+                    },
+                    {
+                      label: 'British Pound — GBP',
+                      value: 'GBP',
+                    },
+                    {
+                      label: 'Euro — EUR',
+                      value: 'EUR',
+                    },
+                  ]}
+                />
+              </CCol>
+
+              <CCol md={4}>
+                <CFormInput
+                  label="Currency Symbol"
+                  name="currencySymbol"
+                  value={formData.currencySymbol || ''}
+                  onChange={handleChange}
+                  maxLength={5}
+                />
+              </CCol>
+
+              <CCol md={4}>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  label="Tax / VAT Rate (%)"
+                  name="taxRate"
+                  value={formData.taxRate ?? 0}
+                  onChange={handleChange}
+                />
+
+                <small className="text-medium-emphasis">
+                  Set to 0 if tax is not being automatically applied.
+                </small>
+              </CCol>
+
+              <CCol md={6}>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  label="Loyalty Point Rate"
+                  name="loyaltyPointRate"
+                  value={formData.loyaltyPointRate ?? 0}
+                  onChange={handleChange}
+                />
+
+                <small className="text-medium-emphasis">
+                  Points awarded according to your configured loyalty rules.
+                </small>
+              </CCol>
+
+              <CCol md={6}>
+                <div
+                  className="h-100 rounded-3 p-3"
+                  style={{
+                    background: '#faf8f3',
+                    border: '1px solid #eee5d5',
+                  }}
+                >
+                  <div className="small text-medium-emphasis mb-1">Current Currency</div>
+
+                  <div className="fs-4 fw-bold">
+                    {formData.currencySymbol} {formData.currency}
+                  </div>
+
+                  <div className="small text-medium-emphasis mt-1">
+                    Used across POS, receipts and sales records.
+                  </div>
+                </div>
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
+
+        {/* =====================================================
+            3. SALES & POS
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Sales & POS Controls</div>
+
+            <small className="text-medium-emphasis">
+              Control how sales are processed at the fashion-store POS.
+            </small>
+          </CCardHeader>
+
+          <CCardBody className="p-4">
+            <CRow className="g-3">
+              <CCol md={6}>
+                <div
+                  className="rounded-3 p-3 h-100"
+                  style={{
+                    border: '1px solid #e9e9e9',
+                    background: '#fff',
+                  }}
+                >
                   <CFormCheck
-                    className="mt-4"
                     label="Automatically Approve Sales"
                     name="autoApproveSales"
                     checked={Boolean(formData.autoApproveSales)}
                     onChange={handleChange}
                   />
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
 
-          {/* =====================================================
-              INVENTORY SETTINGS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>3. Inventory Settings</strong>
-            </CCardHeader>
-
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={6}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    label="Low Stock Threshold"
-                    name="lowStockThreshold"
-                    value={formData.lowStockThreshold ?? 0}
-                    onChange={handleChange}
-                  />
-
-                  <small className="text-medium-emphasis">
-                    Products will be flagged when stock reaches this level.
+                  <small className="text-medium-emphasis d-block mt-2">
+                    Completed POS transactions are automatically marked as approved.
                   </small>
-                </CCol>
+                </div>
+              </CCol>
 
-                <CCol md={6}>
+              <CCol md={6}>
+                <div
+                  className="rounded-3 p-3 h-100"
+                  style={{
+                    border: '1px solid #e9e9e9',
+                    background: '#fff',
+                  }}
+                >
                   <CFormCheck
-                    className="mt-4"
                     label="Allow Negative Stock"
                     name="allowNegativeStock"
                     checked={Boolean(formData.allowNegativeStock)}
                     onChange={handleChange}
                   />
 
-                  <small className="text-medium-emphasis">
-                    Allow sales even when available stock is zero.
+                  <small className="text-medium-emphasis d-block mt-2">
+                    Recommended: keep this disabled to prevent selling items that are not available
+                    in inventory.
                   </small>
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
+                </div>
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
 
-          {/* =====================================================
-              RECEIPT SETTINGS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>4. Receipt Settings</strong>
-            </CCardHeader>
+        {/* =====================================================
+            4. INVENTORY
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Inventory Management</div>
 
-            <CCardBody>
-              <CFormTextarea
-                rows={4}
-                label="Receipt Footer"
-                name="receiptFooter"
-                value={formData.receiptFooter || ''}
-                onChange={handleChange}
-                placeholder="Thank you for patronizing Princess Salon..."
-              />
+            <small className="text-medium-emphasis">
+              Configure stock alert behaviour for products and variants.
+            </small>
+          </CCardHeader>
+
+          <CCardBody className="p-4">
+            <CRow className="g-4">
+              <CCol md={6}>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="1"
+                  label="Default Low-Stock Threshold"
+                  name="lowStockThreshold"
+                  value={formData.lowStockThreshold ?? 0}
+                  onChange={handleChange}
+                />
+
+                <small className="text-medium-emphasis">
+                  Products are considered low-stock when available quantity reaches this level.
+                </small>
+              </CCol>
+
+              <CCol md={6}>
+                <div
+                  className="rounded-3 p-3 h-100"
+                  style={{
+                    background: '#faf8f3',
+                    border: '1px solid #eee5d5',
+                  }}
+                >
+                  <div className="fw-semibold mb-1">Recommended Inventory Policy</div>
+
+                  <div className="small text-medium-emphasis">
+                    Keep negative stock disabled and maintain product-specific reorder levels for
+                    high-value fashion items.
+                  </div>
+                </div>
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
+
+        {/* =====================================================
+            5. RECEIPT
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Receipt & Printing</div>
+
+            <small className="text-medium-emphasis">
+              Configure the message printed at the bottom of customer receipts.
+            </small>
+          </CCardHeader>
+
+          <CCardBody className="p-4">
+            <CFormTextarea
+              rows={4}
+              label="Receipt Footer Message"
+              name="receiptFooter"
+              value={formData.receiptFooter || ''}
+              onChange={handleChange}
+              placeholder="Thank you for shopping with Onishakara Gold Fashion Store."
+              maxLength={500}
+            />
+
+            <div className="d-flex justify-content-between mt-2">
+              <small className="text-medium-emphasis">
+                Keep your receipt message short and professional.
+              </small>
 
               <small className="text-medium-emphasis">
-                This message will appear at the bottom of printed receipts.
+                {(formData.receiptFooter || '').length}/500
               </small>
-            </CCardBody>
-          </CCard>
+            </div>
 
-          {/* =====================================================
-              BUSINESS HOURS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>5. Business Hours</strong>
-            </CCardHeader>
+            {/* Receipt Preview */}
+            <div className="mt-4">
+              <div className="small fw-semibold text-uppercase mb-2">Receipt Preview</div>
 
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={3}>
-                  <CFormInput
-                    type="time"
-                    label="Opening Time"
-                    name="openingTime"
-                    value={formData.openingTime || ''}
-                    onChange={handleChange}
-                  />
+              <div
+                className="mx-auto p-4 rounded-3"
+                style={{
+                  maxWidth: 360,
+                  background: '#fff',
+                  border: '1px dashed #cfcfcf',
+                  fontFamily: 'monospace',
+                }}
+              >
+                <div className="text-center">
+                  <div className="fw-bold">
+                    {formData.companyName || 'ONISHAKARA GOLD FASHION STORE'}
+                  </div>
 
-                  <small className="text-medium-emphasis">Normal opening time.</small>
-                </CCol>
+                  {formData.companyPhone && <div className="small">{formData.companyPhone}</div>}
 
-                <CCol md={3}>
-                  <CFormInput
-                    type="time"
-                    label="Closing Time"
-                    name="closingTime"
-                    value={formData.closingTime || ''}
-                    onChange={handleChange}
-                  />
+                  <div className="my-3 border-bottom" />
 
-                  <small className="text-medium-emphasis">Normal closing time.</small>
-                </CCol>
+                  <div className="d-flex justify-content-between small">
+                    <span>ITEM</span>
+                    <span>AMOUNT</span>
+                  </div>
 
-                <CCol md={3}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    label="Working Hours"
-                    name="workingHours"
-                    value={formData.workingHours ?? 0}
-                    onChange={handleChange}
-                  />
+                  <div className="border-bottom my-2" />
 
-                  <small className="text-medium-emphasis">Standard working hours per day.</small>
-                </CCol>
+                  <div className="d-flex justify-content-between small">
+                    <span>Sample Product</span>
+                    <span>{formData.currencySymbol}0.00</span>
+                  </div>
 
-                <CCol md={3}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    label="Grace Period (Minutes)"
-                    name="gracePeriod"
-                    value={formData.gracePeriod ?? 0}
-                    onChange={handleChange}
-                  />
+                  <div className="border-bottom my-3" />
 
-                  <small className="text-medium-emphasis">
-                    Time allowed before marking staff late.
-                  </small>
-                </CCol>
+                  <div className="d-flex justify-content-between fw-bold">
+                    <span>TOTAL</span>
+                    <span>{formData.currencySymbol}0.00</span>
+                  </div>
 
-                <CCol md={6}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    label="Early Clock-In Allowance (Minutes)"
-                    name="earlyClockInMinutes"
-                    value={formData.earlyClockInMinutes ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
+                  <div className="mt-4 small text-center">
+                    {formData.receiptFooter || 'Thank you for shopping with us.'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CCardBody>
+        </CCard>
 
-          {/* =====================================================
-              ATTENDANCE AND KIOSK SETTINGS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>6. Attendance & Kiosk Settings</strong>
-            </CCardHeader>
+        {/* =====================================================
+            6. BUSINESS HOURS
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Business Hours</div>
 
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable QR Attendance"
-                    name="qrAttendanceEnabled"
-                    checked={Boolean(formData.qrAttendanceEnabled)}
-                    onChange={handleChange}
-                  />
+            <small className="text-medium-emphasis">
+              Define your normal store operating schedule.
+            </small>
+          </CCardHeader>
 
-                  <small className="text-medium-emphasis">
-                    Allow staff to clock in and out using QR ID cards.
-                  </small>
-                </CCol>
+          <CCardBody className="p-4">
+            <CRow className="g-4">
+              <CCol md={3}>
+                <CFormInput
+                  type="time"
+                  label="Opening Time"
+                  name="openingTime"
+                  value={formData.openingTime || ''}
+                  onChange={handleChange}
+                />
+              </CCol>
 
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable Kiosk Mode"
-                    name="kioskModeEnabled"
-                    checked={Boolean(formData.kioskModeEnabled)}
-                    onChange={handleChange}
-                  />
+              <CCol md={3}>
+                <CFormInput
+                  type="time"
+                  label="Closing Time"
+                  name="closingTime"
+                  value={formData.closingTime || ''}
+                  onChange={handleChange}
+                />
+              </CCol>
 
-                  <small className="text-medium-emphasis">
-                    Enable the dedicated attendance kiosk.
-                  </small>
-                </CCol>
+              <CCol md={3}>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  max="24"
+                  step="0.5"
+                  label="Working Hours"
+                  name="workingHours"
+                  value={formData.workingHours ?? 0}
+                  onChange={handleChange}
+                />
+              </CCol>
 
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable Movement Tracking"
-                    name="movementTrackingEnabled"
-                    checked={Boolean(formData.movementTrackingEnabled)}
-                    onChange={handleChange}
-                  />
+              <CCol md={3}>
+                <CFormInput
+                  type="number"
+                  min="0"
+                  label="Grace Period (Minutes)"
+                  name="gracePeriod"
+                  value={formData.gracePeriod ?? 0}
+                  onChange={handleChange}
+                />
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
 
-                  <small className="text-medium-emphasis">
-                    Track staff going out and returning.
-                  </small>
-                </CCol>
+        {/* =====================================================
+            7. SYSTEM SUMMARY
+        ====================================================== */}
+        <CCard className="border-0 shadow-sm mb-4">
+          <CCardHeader className="bg-white border-bottom p-4">
+            <div className="fw-bold fs-5">Configuration Summary</div>
+          </CCardHeader>
 
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Require Reason for Movement"
-                    name="requireReasonForMovement"
-                    checked={Boolean(formData.requireReasonForMovement)}
-                    onChange={handleChange}
-                  />
+          <CCardBody className="p-4">
+            <CRow className="g-3">
+              <CCol sm={6} lg={3}>
+                <div
+                  className="rounded-3 p-3"
+                  style={{
+                    background: '#f8f8f8',
+                  }}
+                >
+                  <small className="text-medium-emphasis">Currency</small>
 
-                  <small className="text-medium-emphasis">
-                    Staff must provide a reason before going out.
-                  </small>
-                </CCol>
+                  <div className="fw-bold mt-1">
+                    {formData.currencySymbol} {formData.currency}
+                  </div>
+                </div>
+              </CCol>
 
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Allow Clock-Out Without Returning"
-                    name="allowClockOutWithoutReturn"
-                    checked={Boolean(formData.allowClockOutWithoutReturn)}
-                    onChange={handleChange}
-                  />
+              <CCol sm={6} lg={3}>
+                <div
+                  className="rounded-3 p-3"
+                  style={{
+                    background: '#f8f8f8',
+                  }}
+                >
+                  <small className="text-medium-emphasis">Tax Rate</small>
 
-                  <small className="text-medium-emphasis">
-                    Allow staff to clock out while still marked outside.
-                  </small>
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
+                  <div className="fw-bold mt-1">{Number(formData.taxRate || 0).toFixed(2)}%</div>
+                </div>
+              </CCol>
 
-          {/* =====================================================
-              PENALTY SETTINGS
-          ====================================================== */}
-          <CCard className="mb-4 border">
-            <CCardHeader>
-              <strong>7. Staff Penalty Settings</strong>
-            </CCardHeader>
+              <CCol sm={6} lg={3}>
+                <div
+                  className="rounded-3 p-3"
+                  style={{
+                    background: '#f8f8f8',
+                  }}
+                >
+                  <small className="text-medium-emphasis">Low Stock Alert</small>
 
-            <CCardBody>
-              <CRow className="g-3">
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable Staff Penalties"
-                    name="allowPenalty"
-                    checked={Boolean(formData.allowPenalty)}
-                    onChange={handleChange}
-                  />
+                  <div className="fw-bold mt-1">{formData.lowStockThreshold} units</div>
+                </div>
+              </CCol>
 
-                  <small className="text-medium-emphasis">
-                    Allow the system to calculate staff penalties.
-                  </small>
-                </CCol>
+              <CCol sm={6} lg={3}>
+                <div
+                  className="rounded-3 p-3"
+                  style={{
+                    background: '#f8f8f8',
+                  }}
+                >
+                  <small className="text-medium-emphasis">Negative Stock</small>
 
-                <CCol md={6}>
-                  <CFormSelect
-                    label="Penalty Basis"
-                    name="penaltyBasis"
-                    value={formData.penaltyBasis || 'fixed_amount'}
-                    onChange={handleChange}
-                    options={[
-                      {
-                        label: 'Fixed Amount',
-                        value: 'fixed_amount',
-                      },
-                      {
-                        label: 'Commission',
-                        value: 'commission',
-                      },
-                      {
-                        label: 'Salary',
-                        value: 'salary',
-                      },
-                    ]}
-                  />
-                </CCol>
+                  <div className="fw-bold mt-1">
+                    {formData.allowNegativeStock ? 'Allowed' : 'Blocked'}
+                  </div>
+                </div>
+              </CCol>
+            </CRow>
+          </CCardBody>
+        </CCard>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    label="Default Penalty Amount"
-                    name="defaultPenaltyAmount"
-                    value={formData.defaultPenaltyAmount ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+        {/* =====================================================
+            SAVE BAR
+        ====================================================== */}
+        <div
+          className="sticky-bottom py-3"
+          style={{
+            background: 'rgba(255,255,255,.94)',
+            backdropFilter: 'blur(10px)',
+            borderTop: '1px solid #e8e8e8',
+            zIndex: 10,
+          }}
+        >
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+              <div className="fw-semibold">Store configuration</div>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    label="General Penalty Rate (%)"
-                    name="penaltyRate"
-                    value={formData.penaltyRate ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+              <small className="text-medium-emphasis">
+                Review your settings before saving changes.
+              </small>
+            </div>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    label="Late Penalty (%)"
-                    name="latePenaltyPercent"
-                    value={formData.latePenaltyPercent ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
+            <div className="d-flex gap-2">
+              <CButton
+                type="button"
+                color="light"
+                className="px-4"
+                onClick={resetForm}
+                disabled={saving}
+              >
+                Restore Defaults
+              </CButton>
 
-                <CCol md={4}>
-                  <CFormInput
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    label="Overstay Penalty (%)"
-                    name="overStayPenaltyPercent"
-                    value={formData.overStayPenaltyPercent ?? 0}
-                    onChange={handleChange}
-                  />
-                </CCol>
-
-                <CCol md={4}>
-                  <CFormCheck
-                    className="mt-4"
-                    label="Enable Late Penalty"
-                    name="latePenaltyEnabled"
-                    checked={Boolean(formData.latePenaltyEnabled)}
-                    onChange={handleChange}
-                  />
-                </CCol>
-
-                <CCol md={4}>
-                  <CFormCheck
-                    className="mt-4"
-                    label="Enable Absence Penalty"
-                    name="absentPenaltyEnabled"
-                    checked={Boolean(formData.absentPenaltyEnabled)}
-                    onChange={handleChange}
-                  />
-                </CCol>
-
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable Movement Overstay Penalty"
-                    name="movementOverstayPenaltyEnabled"
-                    checked={Boolean(formData.movementOverstayPenaltyEnabled)}
-                    onChange={handleChange}
-                  />
-                </CCol>
-
-                <CCol md={6}>
-                  <CFormCheck
-                    label="Enable Overtime Penalty"
-                    name="overtimePenaltyEnabled"
-                    checked={Boolean(formData.overtimePenaltyEnabled)}
-                    onChange={handleChange}
-                  />
-                </CCol>
-              </CRow>
-            </CCardBody>
-          </CCard>
-
-          {/* =====================================================
-              SAVE BUTTON
-          ====================================================== */}
-          <div className="d-flex justify-content-end gap-2">
-            <CButton type="submit" color="primary" size="lg" disabled={saving}>
-              {saving ? (
-                <>
-                  <CSpinner size="sm" className="me-2" />
-                  Saving Settings...
-                </>
-              ) : (
-                'Save Settings'
-              )}
-            </CButton>
+              <CButton
+                type="submit"
+                className="px-4 fw-semibold"
+                disabled={saving}
+                style={{
+                  background: '#111111',
+                  borderColor: '#111111',
+                  color: '#d4af37',
+                }}
+              >
+                {saving ? (
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Saving Settings...
+                  </>
+                ) : (
+                  'Save Store Settings'
+                )}
+              </CButton>
+            </div>
           </div>
-        </CForm>
-      </CCardBody>
-    </CCard>
+        </div>
+      </CForm>
+    </div>
   )
 }
 
