@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CIcon from '@coreui/icons-react'
+import { useNavigate } from 'react-router-dom'
 import {
   cilBarcode,
   cilCart,
   cilChart,
   cilCheck,
   cilPeople,
+  cilNotes,
   cilPlus,
   cilPrint,
   cilTrash,
@@ -32,11 +34,13 @@ import BarcodeModal from '../pos/BarcodeModal'
 import ClearCartModal from '../pos/ClearCartModal'
 import DailyReportModal from '../pos/DailyReport'
 import ShowHeldSalesModal from './ShowHeldSalesModal'
+import LogoutButton from '../auth/logout'
 
 const API_ROOT = import.meta.env.VITE_BACKEND_URL
 const API_URL = `${API_ROOT}api/v1`
 
 const POSPage = () => {
+  const navigate = useNavigate()
   const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('user') || '{}')
@@ -648,10 +652,132 @@ const POSPage = () => {
         style={{
           height: 'calc(100vh - 64px)',
           display: 'grid',
-          gridTemplateColumns: 'minmax(0,1fr) 390px',
+          gridTemplateColumns: '54px minmax(0,1fr) 390px',
           minHeight: 0,
         }}
       >
+        {/* =======================================================
+            LEFT NAVIGATION RAIL
+        ========================================================= */}
+        <aside
+          style={{
+            background: '#0a0c0f',
+            borderRight: '1px solid #24282e',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            padding: '8px 5px',
+            minHeight: 0,
+          }}
+        >
+          {[
+            {
+              label: 'REG',
+              icon: cilCart,
+              active: true,
+              onClick: () => navigate('/dashboard'),
+            },
+            {
+              label: 'BOOK',
+              icon: cilNotes,
+              onClick: () => navigate('/salesReport'),
+            },
+            {
+              label: 'CLIENT',
+              icon: cilPeople,
+              onClick: () => setShowCustomer(true),
+            },
+            {
+              label: 'LEDGER',
+              icon: cilChart,
+              onClick: () => {
+                daily()
+              },
+            },
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+              style={{
+                width: '44px',
+                height: '52px',
+                marginBottom: '4px',
+                border: 0,
+                borderRadius: '5px',
+                background: item.active ? '#e8bd35' : 'transparent',
+                color: item.active ? '#111' : '#737b84',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                cursor: item.onClick ? 'pointer' : 'default',
+              }}
+            >
+              <CIcon icon={item.icon} size="sm" />
+
+              <span
+                style={{
+                  fontSize: '6px',
+                  fontWeight: 900,
+                  letterSpacing: '.5px',
+                }}
+              >
+                {item.label}
+              </span>
+            </button>
+          ))}
+
+          <div style={{ flex: 1 }} />
+
+          <button
+            type="button"
+            onClick={() => setShowBarcode(true)}
+            style={{
+              width: '44px',
+              height: '46px',
+              border: 0,
+              background: 'transparent',
+              color: '#777f88',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            <CIcon icon={cilBarcode} size="sm" />
+
+            <span
+              style={{
+                fontSize: '6px',
+                fontWeight: 900,
+              }}
+            >
+              SCAN
+            </span>
+          </button>
+
+          <div
+            style={{
+              width: '38px',
+              margin: '3px 0 6px',
+              borderTop: '1px solid #252a30',
+            }}
+          />
+
+          <div
+            style={{
+              transform: 'scale(.72)',
+              transformOrigin: 'bottom center',
+            }}
+          >
+            <LogoutButton />
+          </div>
+        </aside>
+
         <main
           style={{
             minWidth: 0,
