@@ -625,7 +625,7 @@ const EditProduct = () => {
     <div
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #090909 0%, #111111 45%, #191919 100%)',
+        background: 'transparent',
         color: '#f5f5f5',
         paddingBottom: 50,
       }}
