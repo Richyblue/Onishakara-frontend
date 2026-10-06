@@ -363,6 +363,12 @@ const _nav = [
 
       {
         component: CNavItem,
+        name: 'Database Backup',
+        to: '/admins',
+      },
+
+      {
+        component: CNavItem,
         name: 'Hardware Settings',
         to: '/hardwareSetting',
       },

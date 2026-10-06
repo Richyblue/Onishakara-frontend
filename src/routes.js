@@ -14,7 +14,7 @@ import React from 'react'
 // ============================================================
 
 const Dashboard = React.lazy(() => import('./views/dashboard/Dashboard'))
-
+const Admins = React.lazy(() => import('./Admin'))
 // ============================================================
 // PRODUCTS & INVENTORY
 // ============================================================
@@ -147,6 +147,13 @@ export const routes = [
     path: '/dashboard',
     name: 'Dashboard',
     element: Dashboard,
+    roles: ['admin', 'manager'],
+  },
+
+  {
+    path: '/admins',
+    name: 'Admin',
+    element: Admins,
     roles: ['admin', 'manager'],
   },
 

@@ -41,6 +41,12 @@ const API_URL = `${API_ROOT}api/v1`
 
 const POSPage = () => {
   const navigate = useNavigate()
+  const [windowMode, setWindowMode] = useState('cashier')
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminLoading, setAdminLoading] = useState(false)
+  const [adminError, setAdminError] = useState('')
   const user = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem('user') || '{}')
@@ -158,6 +164,29 @@ const POSPage = () => {
   useEffect(() => {
     load()
   }, [load])
+  useEffect(() => {
+    if (!window.electronAPI) return
+
+    const loadWindowMode = async () => {
+      const result = await window.electronAPI.getWindowMode()
+
+      if (result?.success) {
+        setWindowMode(result.mode)
+      }
+    }
+
+    loadWindowMode()
+
+    const removeListener = window.electronAPI.onWindowModeChanged((mode) => {
+      setWindowMode(mode)
+    })
+
+    return () => {
+      if (typeof removeListener === 'function') {
+        removeListener()
+      }
+    }
+  }, [])
   useEffect(() => localStorage.setItem(cartKey, JSON.stringify(cart)), [cart, cartKey])
   const variants = (p) =>
     Array.isArray(p?.Variants) ? p.Variants : Array.isArray(p?.variants) ? p.variants : []
@@ -370,6 +399,101 @@ const POSPage = () => {
       }
     } finally {
       setProcessing(false)
+    }
+  }
+
+  const handleAdminLogin = async () => {
+    if (!adminEmail.trim() || !adminPassword.trim()) {
+      setAdminError('Enter administrator email and password.')
+      return
+    }
+
+    setAdminLoading(true)
+    setAdminError('')
+
+    try {
+      const API_URLS = import.meta.env.VITE_BACKEND_URL
+
+      const response = await axios.post(`${API_URLS}api/auth/login`, {
+        email: adminEmail.trim(),
+        password: adminPassword,
+      })
+
+      if (!response.data?.success || !response.data?.token) {
+        setAdminError('Unable to authenticate administrator.')
+        return
+      }
+
+      const user = response.data.user
+
+      console.log('ADMIN LOGIN USER:', user)
+
+      /*
+       * Only administrator/manager accounts
+       * should be allowed to unlock Admin Mode.
+       *
+       * Adjust these role names if your database
+       * uses different names.
+       */
+      const allowedRoles = ['admin', 'administrator', 'manager']
+
+      const userRole = String(user?.role || '').toLowerCase()
+
+      if (!allowedRoles.includes(userRole)) {
+        setAdminError('Access denied. Administrator privileges are required.')
+        return
+      }
+
+      /*
+       * Authentication succeeded and the user
+       * has administrator privileges.
+       */
+
+      const electron = window.electronAPI
+
+      if (!electron?.enterAdminMode) {
+        setAdminError('Administrator window controls are not available.')
+        return
+      }
+
+      const result = await electron.enterAdminMode()
+
+      if (!result?.success) {
+        setAdminError(result?.error || 'Unable to switch to administrator mode.')
+        return
+      }
+
+      /*
+       * Save the authenticated user.
+       * We don't need to replace the existing POS
+       * login token because this is the same authentication
+       * system.
+       */
+      localStorage.setItem('adminUser', JSON.stringify(user))
+
+      setShowAdminLogin(false)
+      setAdminEmail('')
+      setAdminPassword('')
+      setAdminError('')
+    } catch (error) {
+      console.error('Administrator login failed:', error.response?.data || error.message)
+
+      if (error.response?.status === 401) {
+        setAdminError(error.response?.data?.message || 'Invalid email or password.')
+        return
+      }
+
+      if (error.response?.status === 403) {
+        setAdminError(
+          error.response?.data?.message ||
+            'This account is not allowed to access the administrator area.',
+        )
+        return
+      }
+
+      setAdminError(error.response?.data?.message || 'Unable to verify administrator account.')
+    } finally {
+      setAdminLoading(false)
     }
   }
   const searchReceipts = async () => {
@@ -759,6 +883,54 @@ const POSPage = () => {
               SCAN
             </span>
           </button>
+          {window.electronAPI && (
+            <button
+              type="button"
+              onClick={() => {
+                setAdminError('')
+                setAdminPassword('')
+                setShowAdminLogin(true)
+              }}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '6px',
+                border: '1px solid #d4af37',
+                background: '#151515',
+                color: '#d4af37',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ADMIN
+            </button>
+          )}
+
+          {windowMode === 'admin' && window.electronAPI && (
+            <button
+              type="button"
+              onClick={async () => {
+                const result = await window.electronAPI.enterCashierMode()
+
+                if (!result?.success) {
+                  console.error('Unable to return to cashier mode:', result?.error)
+                  return
+                }
+
+                setWindowMode('cashier')
+              }}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '6px',
+                border: '1px solid #d4af37',
+                background: '#d4af37',
+                color: '#111',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              RETURN TO CASHIER
+            </button>
+          )}
 
           <div
             style={{
@@ -1719,6 +1891,135 @@ const POSPage = () => {
           ))}
         </CModalBody>
       </CModal>
+
+      {showAdminLogin && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+          }}
+        >
+          <div
+            style={{
+              width: '380px',
+              maxWidth: '90%',
+              background: '#171b20',
+              borderRadius: '10px',
+              padding: '25px',
+              boxShadow: '0 20px 60px rgba(0,0,0,.5)',
+              border: '1px solid #30363d',
+            }}
+          >
+            <h3
+              style={{
+                margin: '0 0 6px',
+                color: '#fff',
+              }}
+            >
+              Administrator Access
+            </h3>
+
+            <p
+              style={{
+                color: '#8e969f',
+                fontSize: '13px',
+                marginBottom: '20px',
+              }}
+            >
+              Enter your administrator credentials to unlock the application.
+            </p>
+
+            {adminError && (
+              <div
+                style={{
+                  background: '#35191b',
+                  color: '#ff8585',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  marginBottom: '12px',
+                  fontSize: '13px',
+                }}
+              >
+                {adminError}
+              </div>
+            )}
+
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={(e) => setAdminPassword(e.target.value)}
+              placeholder="Administrator password"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleAdminLogin()
+                }
+              }}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid #363d45',
+                background: '#0f1215',
+                color: '#fff',
+                outline: 'none',
+                marginBottom: '15px',
+              }}
+            />
+
+            <div
+              style={{
+                display: 'flex',
+                gap: '10px',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminLogin(false)
+                  setAdminPassword('')
+                  setAdminError('')
+                }}
+                style={{
+                  padding: '10px 15px',
+                  borderRadius: '6px',
+                  border: '1px solid #363d45',
+                  background: 'transparent',
+                  color: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={adminLoading}
+                onClick={handleAdminLogin}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: '#d4af37',
+                  color: '#111',
+                  fontWeight: 800,
+                  cursor: adminLoading ? 'not-allowed' : 'pointer',
+                  opacity: adminLoading ? 0.6 : 1,
+                }}
+              >
+                {adminLoading ? 'Verifying...' : 'Unlock'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
