@@ -405,74 +405,67 @@ const POSPage = () => {
   useEffect(() => {
     let barcodeBuffer = ''
     let lastKeyTime = 0
-  
+
     const handleBarcodeScanner = (e) => {
       // Don't interfere with normal typing in inputs
       const tag = e.target?.tagName
-  
-      if (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT'
-      ) {
+
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         return
       }
-  
+
       const now = Date.now()
-  
+
       // Barcode scanners type very quickly.
       // If there is a long pause, start a new barcode.
       if (now - lastKeyTime > 100) {
         barcodeBuffer = ''
       }
-  
+
       lastKeyTime = now
-  
+
       // Scanner normally finishes with Enter
       if (e.key === 'Enter') {
         const scannedBarcode = barcodeBuffer.trim()
-  
+
         if (scannedBarcode) {
           handleBarcodeScan(scannedBarcode)
         }
-  
+
         barcodeBuffer = ''
         return
       }
-  
+
       // Collect barcode characters
       if (e.key.length === 1) {
         barcodeBuffer += e.key
       }
     }
-  
+
     window.addEventListener('keydown', handleBarcodeScanner)
-  
+
     return () => {
       window.removeEventListener('keydown', handleBarcodeScanner)
     }
   }, [products])
 
-
   const handleBarcodeScan = (barcode) => {
     const scannedBarcode = String(barcode || '').trim()
-  
+
     if (!scannedBarcode) return
-  
+
     // Find product by barcode
-    const product = products.find(
-      (p) => String(p.barcode || '').trim() === scannedBarcode
-    )
-  
+    const product = products.find((p) => String(p.barcode || '').trim() === scannedBarcode)
+
     if (!product) {
       console.warn(`Product not found: ${scannedBarcode}`)
-  
+
       // Optional notification
       alert(`Product not found\nBarcode: ${scannedBarcode}`)
-  
+
       return
     }
-  
+
     // Automatically add product to cart
     selectProduct(product)
   }

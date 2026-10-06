@@ -604,14 +604,30 @@ const ReceiptModal = ({ show, onHide, sale }) => {
               }
 
               body {
-                width: 60mm;
-                margin: 0;
-                padding: 5px;
-                font-family: monospace;
-                font-size: 8px;
-                color: #000;
-              }
+  width: 60mm;
+  margin: 0;
+  padding: 5px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  color: #000000;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
 
+/* THERMAL PRINT FONT DARKNESS */
+.receipt,
+.receipt * {
+  color: #000000 !important;
+  font-weight: 700;
+}
+
+.receipt strong,
+.receipt b,
+.receipt th,
+.receipt .grand-total {
+  font-weight: 900 !important;
+}
               .receipt {
                 width: 60mm;
                 padding: 5px;
@@ -794,8 +810,9 @@ const ReceiptModal = ({ show, onHide, sale }) => {
                     margin: '0 auto',
                     padding: '5px',
                     fontSize: '9px',
-                    fontFamily: 'monospace',
-                    color: '#000',
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontWeight: 700,
+                    color: '#000000',
                     background: '#fff',
                   }}
                 >
