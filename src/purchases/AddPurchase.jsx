@@ -579,10 +579,8 @@ const idempotencyKeyRef = useRef(null)
         }
       }
   
-      // ---------------------------------------------------------
-      // Generate ONE idempotency key for this purchase submission.
-      // It stays the same if the request needs to be retried.
-      // ---------------------------------------------------------
+      // Generate ONE key for this purchase attempt.
+      // The key is sent in the request body, not as a custom header.
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = crypto.randomUUID()
       }
@@ -600,8 +598,7 @@ const idempotencyKeyRef = useRef(null)
         notes: form.notes.trim() || null,
         status,
   
-        // Optional: also send it in the body
-        // Backend will primarily read the header.
+        // Idempotency key in BODY instead of custom header
         idempotencyKey: idempotencyKeyRef.current,
   
         items: calculatedItems.map((item) => ({
@@ -619,23 +616,11 @@ const idempotencyKeyRef = useRef(null)
         })),
       }
   
-      // ---------------------------------------------------------
-      // Send the same idempotency key with the request.
-      // This prevents duplicate purchases if the user clicks
-      // multiple times or the request is accidentally repeated.
-      // ---------------------------------------------------------
-      const authConfig = getAuthConfig()
-  
+      // No X-Idempotency-Key header here
       const response = await axios.post(
         `${API_URL}/purchases`,
         payload,
-        {
-          ...authConfig,
-          headers: {
-            ...(authConfig?.headers || {}),
-            'X-Idempotency-Key': idempotencyKeyRef.current,
-          },
-        }
+        getAuthConfig()
       )
   
       const createdPurchase =
@@ -665,11 +650,7 @@ const idempotencyKeyRef = useRef(null)
         confirmButtonText: 'OK',
       })
   
-      // ---------------------------------------------------------
-      // Clear the key only after the purchase has successfully
-      // completed. This ensures a retry of the same request uses
-      // the same key.
-      // ---------------------------------------------------------
+      // Clear the key after successful completion
       idempotencyKeyRef.current = null
   
       if (purchaseId) {
@@ -695,13 +676,10 @@ const idempotencyKeyRef = useRef(null)
       })
   
     } finally {
-      // Always unlock, including when validation/confirmation
-      // returns early.
       savingRef.current = false
       setSaving(false)
     }
   }
-
   // ------------------------------------------------------------
   // LOADING
   // ------------------------------------------------------------
