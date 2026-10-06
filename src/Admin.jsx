@@ -4,7 +4,7 @@ import { CButton } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilCloudDownload } from '@coreui/icons'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = import.meta.env.VITE_BACKEND_URL
 
 const Admin = () => {
   // ADD THE BACKUP FUNCTION HERE
