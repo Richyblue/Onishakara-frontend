@@ -88,7 +88,7 @@ const ReceiptModal = ({ show, onHide, sale }) => {
   // SETTINGS VALUES
   // ==========================================================
 
-  const companyName = settings?.companyName || 'ONISHAKARA GOLD FASHION STORE'
+  const companyName = settings?.companyName || 'ONISHAKARA'
 
   const companyPhone = settings?.companyPhone || ''
 
