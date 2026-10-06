@@ -15,8 +15,8 @@ import CIcon from '@coreui/icons-react'
 import { cilPrint, cilQrCode } from '@coreui/icons'
 
 const StaffIDCardModal = ({ visible, onClose, staff }) => {
-  const API_ROOT = String(import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '')
-  const API_URL = `${API_ROOT}/api/v1`
+  const API_ROOT = import.meta.env.VITE_BACKEND_URL
+  const API_URL = `${API_ROOT}api/v1`
 
   const [loading, setLoading] = useState(false)
   const [qrImage, setQrImage] = useState('')

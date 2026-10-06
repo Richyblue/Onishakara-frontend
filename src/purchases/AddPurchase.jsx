@@ -1,4 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import {
   CAlert,
   CBadge,
@@ -172,6 +177,9 @@ const AddPurchase = () => {
 
   const [suppliers, setSuppliers] = useState([])
   const [products, setProducts] = useState([])
+
+const savingRef = useRef(false)
+const idempotencyKeyRef = useRef(null)
 
   const [form, setForm] = useState({
     supplierId: '',
@@ -528,139 +536,168 @@ const AddPurchase = () => {
   // ------------------------------------------------------------
   // SAVE PURCHASE
   // ------------------------------------------------------------
-
   const savePurchase = async (status = 'draft') => {
-    if (!validatePurchase()) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
-
-      return
-    }
-
-    if (hasDuplicateItems()) {
-      const result = await Swal.fire({
-        icon: 'warning',
-        title: 'Duplicate product',
-        text: 'The same product/variant appears more than once. Would you like to continue?',
-        showCancelButton: true,
-        confirmButtonText: 'Continue',
-        cancelButtonText: 'Review',
-      })
-
-      if (!result.isConfirmed) return
-    }
-
-    if (status === 'received') {
-      const confirmation = await Swal.fire({
-        icon: 'question',
-        title: 'Receive this purchase?',
-        text: 'Receiving this purchase will increase the stock quantities and record the purchase as received.',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, Receive Purchase',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#b8860b',
-      })
-
-      if (!confirmation.isConfirmed) {
-        return
-      }
-    }
-
+    // Prevent multiple submissions before React has time to update state
+    if (savingRef.current) return
+  
+    savingRef.current = true
     setSaving(true)
     setError('')
-
+  
     try {
+      if (!validatePurchase()) {
+        return
+      }
+  
+      if (hasDuplicateItems()) {
+        const result = await Swal.fire({
+          icon: 'warning',
+          title: 'Duplicate Items',
+          text: 'Some products appear more than once. Do you want to continue?',
+          showCancelButton: true,
+          confirmButtonText: 'Continue',
+          cancelButtonText: 'Cancel',
+        })
+  
+        if (!result.isConfirmed) {
+          return
+        }
+      }
+  
+      if (status === 'received') {
+        const confirmation = await Swal.fire({
+          icon: 'question',
+          title: 'Receive Purchase?',
+          text: 'This will immediately update your stock. Continue?',
+          showCancelButton: true,
+          confirmButtonText: 'Yes, Receive',
+          cancelButtonText: 'Cancel',
+        })
+  
+        if (!confirmation.isConfirmed) {
+          return
+        }
+      }
+  
+      // ---------------------------------------------------------
+      // Generate ONE idempotency key for this purchase submission.
+      // It stays the same if the request needs to be retried.
+      // ---------------------------------------------------------
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = crypto.randomUUID()
+      }
+  
       const payload = {
         supplierId: Number(form.supplierId),
-
         purchaseDate: form.purchaseDate,
-
         invoiceNumber: form.invoiceNumber.trim() || null,
-
         discount,
         tax,
         shippingCost,
         otherCharges,
-
         amountPaid,
-
         paymentMethod: form.paymentMethod,
-
         notes: form.notes.trim() || null,
-
         status,
-
-        items: calculatedItems.map((item) => {
-          const product = getSelectedProduct(item.productId)
-
-          const variants = getProductVariants(product)
-
-          const selectedVariant = variants.find(
-            (variant) => Number(variant.id) === Number(item.variantId),
-          )
-
-          return {
-            productId: Number(item.productId),
-
-            variantId: item.variantId ? Number(item.variantId) : null,
-
-            productName: product?.name || null,
-
-            variantName: selectedVariant ? getVariantName(selectedVariant) : null,
-
-            quantity: Number(item.quantity),
-
-            costPrice: Number(item.costPrice),
-
-            subtotal: Number(item.subtotal),
-
-            discount: 0,
-
-            total: Number(item.subtotal),
-          }
-        }),
+  
+        // Optional: also send it in the body
+        // Backend will primarily read the header.
+        idempotencyKey: idempotencyKeyRef.current,
+  
+        items: calculatedItems.map((item) => ({
+          productId: Number(item.productId),
+          variantId: item.variantId
+            ? Number(item.variantId)
+            : null,
+          productName: item.productName,
+          variantName: item.variantName || null,
+          quantity: Number(item.quantity),
+          costPrice: Number(item.costPrice),
+          discount: Number(item.discount || 0),
+          subtotal: Number(item.subtotal || 0),
+          total: Number(item.total || 0),
+        })),
       }
-
-      const response = await axios.post(`${API_URL}/purchases`, payload, getAuthConfig())
-
-      const createdPurchase = response?.data?.purchase || response?.data?.data || response?.data
-
-      const purchaseId = createdPurchase?.id || response?.data?.id
-
+  
+      // ---------------------------------------------------------
+      // Send the same idempotency key with the request.
+      // This prevents duplicate purchases if the user clicks
+      // multiple times or the request is accidentally repeated.
+      // ---------------------------------------------------------
+      const authConfig = getAuthConfig()
+  
+      const response = await axios.post(
+        `${API_URL}/purchases`,
+        payload,
+        {
+          ...authConfig,
+          headers: {
+            ...(authConfig?.headers || {}),
+            'X-Idempotency-Key': idempotencyKeyRef.current,
+          },
+        }
+      )
+  
+      const createdPurchase =
+        response?.data?.purchase ||
+        response?.data?.data ||
+        response?.data
+  
+      const purchaseId =
+        createdPurchase?.id ||
+        response?.data?.id
+  
       await Swal.fire({
-        icon: 'success',
-        title: status === 'received' ? 'Purchase Received' : 'Draft Saved',
-        text:
-          status === 'received'
-            ? 'The purchase has been recorded and stock has been updated.'
-            : 'The purchase draft has been saved successfully.',
-        confirmButtonColor: '#b8860b',
+        icon: response?.data?.duplicate
+          ? 'info'
+          : 'success',
+  
+        title: response?.data?.duplicate
+          ? 'Purchase Already Saved'
+          : status === 'received'
+            ? 'Purchase Received'
+            : 'Purchase Saved',
+  
+        text: response?.data?.duplicate
+          ? 'This purchase was already processed.'
+          : 'Purchase has been saved successfully.',
+  
+        confirmButtonText: 'OK',
       })
-
+  
+      // ---------------------------------------------------------
+      // Clear the key only after the purchase has successfully
+      // completed. This ensures a retry of the same request uses
+      // the same key.
+      // ---------------------------------------------------------
+      idempotencyKeyRef.current = null
+  
       if (purchaseId) {
         navigate(`/purchases/${purchaseId}`)
       } else {
         navigate('/purchases')
       }
+  
     } catch (err) {
-      console.error('Failed to save purchase:', err)
-
+      console.error('Save purchase error:', err)
+  
       const message =
         err?.response?.data?.message ||
-        err?.response?.data?.error ||
         err?.message ||
-        'Unable to save the purchase.'
-
+        'Failed to save purchase.'
+  
       setError(message)
-
-      Swal.fire({
+  
+      await Swal.fire({
         icon: 'error',
-        title: 'Purchase not saved',
+        title: 'Unable to Save Purchase',
         text: message,
       })
+  
     } finally {
+      // Always unlock, including when validation/confirmation
+      // returns early.
+      savingRef.current = false
       setSaving(false)
     }
   }
