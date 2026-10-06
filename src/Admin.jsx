@@ -17,7 +17,7 @@ const Admin = () => {
         return
       }
 
-      const response = await axios.get(`${API_URL}/database/backup`, {
+      const response = await axios.get(`${API_URL}api/v1/database/backup`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
