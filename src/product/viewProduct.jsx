@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import JsBarcode from 'jsbarcode'
+
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
@@ -164,211 +164,286 @@ const ProductList = () => {
   // BARCODE FUNCTIONS
   // =========================================================
 
-  const generateUniqueBarcode = () => {
-    const timestamp = Date.now().toString().slice(-10)
-    const random = Math.floor(Math.random() * 10)
+  
 
-    return `20${timestamp}${random}`
+  // =========================================================
+// BARCODE FUNCTIONS
+// =========================================================
+
+const generateProductBarcode = async (product) => {
+  if (!product?.id) {
+    errorAlert('Invalid product.')
+    return
   }
 
-  const escapeHtml = (value) => {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
+  if (product?.barcode) {
+    successAlert(
+      `This product already has barcode: ${product.barcode}`,
+    )
+    return
   }
 
-  const generateProductBarcode = async (product) => {
-    try {
-      const barcode = generateUniqueBarcode()
-      const token = localStorage.getItem('token')
+  try {
+    const token = localStorage.getItem('token')
 
-      // IMPORTANT:
-      // Change this endpoint only if your backend uses another
-      // product update route.
-      await axios.put(
-        `${API_URL}/api/v1/products/${product.id}`,
-        {
-          barcode,
+    const response = await axios.post(
+      `${API_URL}/api/v1/products/${product.id}/barcode/generate`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        },
+      },
+    )
+
+    successAlert(
+      response.data?.message ||
+        'Barcode generated successfully.',
+    )
+
+    await getProducts(true)
+  } catch (error) {
+    console.error(
+      'Generate barcode error:',
+      error,
+    )
+
+    errorAlert(
+      error.response?.data?.message ||
+        error.message ||
+        'Unable to generate barcode.',
+    )
+  }
+}
+
+const escapeHtml = (value) => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+const printProductBarcode = async (product) => {
+  const barcode = String(
+    product?.barcode || '',
+  ).trim()
+
+  if (!barcode) {
+    errorAlert(
+      'This product does not have a barcode yet.',
+    )
+    return
+  }
+
+  if (
+    !window.electronAPI ||
+    typeof window.electronAPI.printBarcode !==
+      'function'
+  ) {
+    errorAlert(
+      'Barcode printer is not available. Please open the POS desktop application.',
+    )
+    return
+  }
+
+  const productName = String(
+    product?.name || 'Product',
+  ).trim()
+
+  const price = Number(
+    product?.sellingPrice || 0,
+  )
+
+  /*
+   * We are NOT using JsBarcode.
+   *
+   * The XP-236B is a thermal barcode printer.
+   * We send the barcode as HTML and let the
+   * Electron printing system handle the job.
+   */
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+
+        <style>
+          @page {
+            size: 48mm 24.63mm;
+            margin: 0;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            width: 48mm;
+            height: 24.63mm;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #ffffff;
+          }
+
+          body {
+            font-family: Arial, sans-serif;
+          }
+
+          .label {
+            width: 48mm;
+            height: 24.63mm;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            padding: 1mm;
+
+            text-align: center;
+            overflow: hidden;
+          }
+
+          .product-name {
+            width: 45mm;
+            max-width: 45mm;
+
+            font-size: 7pt;
+            font-weight: bold;
+            line-height: 1;
+
+            margin-bottom: 0.8mm;
+
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+
+          .barcode {
+            width: 45mm;
+            max-width: 45mm;
+
+            font-family: 'Libre Barcode 128',
+              'Courier New',
+              monospace;
+
+            font-size: 32px;
+            line-height: 1;
+
+            letter-spacing: 0;
+            white-space: nowrap;
+
+            overflow: hidden;
+          }
+
+          .barcode-number {
+            font-family: Arial, sans-serif;
+
+            font-size: 5.5pt;
+            line-height: 1;
+
+            margin-top: 0.5mm;
+          }
+
+          .price {
+            font-size: 6.5pt;
+            font-weight: bold;
+            line-height: 1;
+
+            margin-top: 0.7mm;
+          }
+        </style>
+      </head>
+
+      <body>
+
+        <div class="label">
+
+          <div class="product-name">
+            ${escapeHtml(productName)}
+          </div>
+
+          <div class="barcode">
+            *${escapeHtml(barcode)}*
+          </div>
+
+          <div class="barcode-number">
+            ${escapeHtml(barcode)}
+          </div>
+
+          ${
+            price > 0
+              ? `
+                <div class="price">
+                  ₦${price.toLocaleString('en-NG')}
+                </div>
+              `
+              : ''
+          }
+
+        </div>
+
+      </body>
+    </html>
+  `
+
+  try {
+    console.log(
+      'Sending barcode to XP-236B...',
+    )
+
+    console.log(
+      'Product:',
+      productName,
+    )
+
+    console.log(
+      'Barcode:',
+      barcode,
+    )
+
+    const result =
+      await window.electronAPI.printBarcode(
+        html,
       )
 
-      successAlert(`Barcode generated for ${product.name}: ${barcode}`)
+    console.log(
+      'Barcode print result:',
+      result,
+    )
 
-      await getProducts(true)
-    } catch (error) {
-      console.error('Generate barcode error:', error)
-
-      errorAlert(error.response?.data?.message || error.message || 'Unable to generate barcode.')
+    if (!result?.success) {
+      throw new Error(
+        result?.error ||
+          result?.message ||
+          'Electron failed to print the barcode.',
+      )
     }
+
+    successAlert(
+      `Barcode printed successfully${
+        result.printer
+          ? ` on ${result.printer}`
+          : ''
+      }`,
+    )
+  } catch (error) {
+    console.error(
+      'ELECTRON BARCODE PRINT ERROR:',
+      error,
+    )
+
+    errorAlert(
+      error.message ||
+        'Unable to print barcode.',
+    )
   }
-
-  const printProductBarcode = async (product) => {
-    const barcode = String(product?.barcode || '').trim()
-
-    if (!barcode) {
-      errorAlert('This product does not have a barcode yet.')
-      return
-    }
-
-    const productName = String(product?.name || 'Product').trim()
-
-    const price = Number(product?.sellingPrice || 0)
-
-    // Generate barcode SVG
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-
-    try {
-      JsBarcode(svg, barcode, {
-        format: 'CODE128',
-        width: 2,
-        height: 60,
-        displayValue: true,
-        fontSize: 13,
-        margin: 5,
-        background: '#ffffff',
-        lineColor: '#000000',
-      })
-    } catch (error) {
-      console.error('BARCODE GENERATION ERROR:', error)
-      errorAlert('Unable to generate barcode.')
-      return
-    }
-
-    const barcodeSvg = svg.outerHTML
-
-    // This HTML is sent directly to Electron
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-  
-          <style>
-            @page {
-              size: 80mm auto;
-              margin: 0;
-            }
-  
-            * {
-              box-sizing: border-box;
-            }
-  
-            html,
-            body {
-              margin: 0;
-              padding: 0;
-              width: 80mm;
-              background: #ffffff;
-              font-family: Arial, sans-serif;
-            }
-  
-            .label {
-              width: 80mm;
-              min-height: 38mm;
-  
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-  
-              padding: 4mm;
-  
-              text-align: center;
-            }
-  
-            .product-name {
-              width: 72mm;
-              max-width: 72mm;
-  
-              font-size: 13px;
-              font-weight: bold;
-  
-              margin-bottom: 2mm;
-  
-              word-break: break-word;
-            }
-  
-            .barcode {
-              width: 72mm;
-              max-width: 72mm;
-              height: auto;
-            }
-  
-            .price {
-              margin-top: 2mm;
-  
-              font-size: 13px;
-              font-weight: bold;
-            }
-          </style>
-        </head>
-  
-        <body>
-  
-          <div class="label">
-  
-            <div class="product-name">
-              ${escapeHtml(productName)}
-            </div>
-  
-            ${barcodeSvg}
-  
-            ${
-              price > 0
-                ? `
-                  <div class="price">
-                    ₦${price.toLocaleString('en-NG')}
-                  </div>
-                `
-                : ''
-            }
-  
-          </div>
-  
-        </body>
-      </html>
-    `
-
-    // =========================================================
-    // ELECTRON PRINTING
-    // =========================================================
-
-    if (!window.electronAPI || typeof window.electronAPI.printReceipt !== 'function') {
-      errorAlert('Electron printer is not available. Please open the POS desktop application.')
-
-      return
-    }
-
-    try {
-      console.log('Sending barcode to Electron printer...')
-      console.log('Product:', productName)
-      console.log('Barcode:', barcode)
-
-      const result = await window.electronAPI.printReceipt(html)
-
-      console.log('Electron print result:', result)
-
-      if (!result?.success) {
-        throw new Error(result?.message || 'Electron failed to print the barcode.')
-      }
-
-      successAlert(`Barcode printed successfully${result.printer ? ` on ${result.printer}` : ''}`)
-    } catch (error) {
-      console.error('ELECTRON BARCODE PRINT ERROR:', error)
-
-      errorAlert(error.message || 'Unable to print barcode.')
-    }
-  }
-
+}
   // =========================================================
   // DELETE PRODUCT
   // =========================================================
