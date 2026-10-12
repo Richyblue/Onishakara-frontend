@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import JsBarcode from 'jsbarcode'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
@@ -19,6 +20,8 @@ import {
   cilChevronLeft,
   cilChevronRight,
   cilX,
+  cilBarcode,
+  cilPrint,
 } from '@coreui/icons'
 
 import {
@@ -156,6 +159,215 @@ const ProductList = () => {
   useEffect(() => {
     getProducts()
   }, [])
+
+  // =========================================================
+  // BARCODE FUNCTIONS
+  // =========================================================
+
+  const generateUniqueBarcode = () => {
+    const timestamp = Date.now().toString().slice(-10)
+    const random = Math.floor(Math.random() * 10)
+
+    return `20${timestamp}${random}`
+  }
+
+  const escapeHtml = (value) => {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+
+  const generateProductBarcode = async (product) => {
+    try {
+      const barcode = generateUniqueBarcode()
+      const token = localStorage.getItem('token')
+
+      // IMPORTANT:
+      // Change this endpoint only if your backend uses another
+      // product update route.
+      await axios.put(
+        `${API_URL}/api/v1/products/${product.id}`,
+        {
+          barcode,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+
+      successAlert(`Barcode generated for ${product.name}: ${barcode}`)
+
+      await getProducts(true)
+    } catch (error) {
+      console.error('Generate barcode error:', error)
+
+      errorAlert(error.response?.data?.message || error.message || 'Unable to generate barcode.')
+    }
+  }
+
+  const printProductBarcode = async (product) => {
+    const barcode = String(product?.barcode || '').trim()
+
+    if (!barcode) {
+      errorAlert('This product does not have a barcode yet.')
+      return
+    }
+
+    const productName = String(product?.name || 'Product').trim()
+
+    const price = Number(product?.sellingPrice || 0)
+
+    // Generate barcode SVG
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
+    try {
+      JsBarcode(svg, barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 60,
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+      })
+    } catch (error) {
+      console.error('BARCODE GENERATION ERROR:', error)
+      errorAlert('Unable to generate barcode.')
+      return
+    }
+
+    const barcodeSvg = svg.outerHTML
+
+    // This HTML is sent directly to Electron
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+  
+          <style>
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+  
+            * {
+              box-sizing: border-box;
+            }
+  
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              width: 80mm;
+              background: #ffffff;
+              font-family: Arial, sans-serif;
+            }
+  
+            .label {
+              width: 80mm;
+              min-height: 38mm;
+  
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+  
+              padding: 4mm;
+  
+              text-align: center;
+            }
+  
+            .product-name {
+              width: 72mm;
+              max-width: 72mm;
+  
+              font-size: 13px;
+              font-weight: bold;
+  
+              margin-bottom: 2mm;
+  
+              word-break: break-word;
+            }
+  
+            .barcode {
+              width: 72mm;
+              max-width: 72mm;
+              height: auto;
+            }
+  
+            .price {
+              margin-top: 2mm;
+  
+              font-size: 13px;
+              font-weight: bold;
+            }
+          </style>
+        </head>
+  
+        <body>
+  
+          <div class="label">
+  
+            <div class="product-name">
+              ${escapeHtml(productName)}
+            </div>
+  
+            ${barcodeSvg}
+  
+            ${
+              price > 0
+                ? `
+                  <div class="price">
+                    ₦${price.toLocaleString('en-NG')}
+                  </div>
+                `
+                : ''
+            }
+  
+          </div>
+  
+        </body>
+      </html>
+    `
+
+    // =========================================================
+    // ELECTRON PRINTING
+    // =========================================================
+
+    if (!window.electronAPI || typeof window.electronAPI.printReceipt !== 'function') {
+      errorAlert('Electron printer is not available. Please open the POS desktop application.')
+
+      return
+    }
+
+    try {
+      console.log('Sending barcode to Electron printer...')
+      console.log('Product:', productName)
+      console.log('Barcode:', barcode)
+
+      const result = await window.electronAPI.printReceipt(html)
+
+      console.log('Electron print result:', result)
+
+      if (!result?.success) {
+        throw new Error(result?.message || 'Electron failed to print the barcode.')
+      }
+
+      successAlert(`Barcode printed successfully${result.printer ? ` on ${result.printer}` : ''}`)
+    } catch (error) {
+      console.error('ELECTRON BARCODE PRINT ERROR:', error)
+
+      errorAlert(error.message || 'Unable to print barcode.')
+    }
+  }
 
   // =========================================================
   // DELETE PRODUCT
@@ -1260,15 +1472,40 @@ const ProductList = () => {
                                 {product.sku || 'No SKU'}
                               </div>
 
-                              {product.barcode && (
+                              {product.barcode ? (
+                                <div
+                                  className="mt-2"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    background: '#fafafa',
+                                    border: '1px solid #eeeeef',
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: '700',
+                                      color: '#52525b',
+                                      fontFamily: 'monospace',
+                                    }}
+                                  >
+                                    {product.barcode}
+                                  </span>
+                                </div>
+                              ) : (
                                 <div
                                   className="mt-1"
                                   style={{
-                                    color: '#a1a1aa',
+                                    color: '#b45309',
                                     fontSize: '10px',
+                                    fontWeight: '700',
                                   }}
                                 >
-                                  {product.barcode}
+                                  No barcode
                                 </div>
                               )}
                             </CTableDataCell>
@@ -1431,6 +1668,41 @@ const ProductList = () => {
                                   textDecoration: 'none',
                                 }}
                               >
+                                {product.barcode ? (
+                                  <CButton
+                                    size="sm"
+                                    className="border-0 me-2"
+                                    title="Print Barcode"
+                                    onClick={() => printProductBarcode(product)}
+                                    style={{
+                                      width: '35px',
+                                      height: '35px',
+                                      padding: '0',
+                                      borderRadius: '9px',
+                                      background: '#eff6ff',
+                                      color: '#2563eb',
+                                    }}
+                                  >
+                                    <CIcon icon={cilPrint} />
+                                  </CButton>
+                                ) : (
+                                  <CButton
+                                    size="sm"
+                                    className="border-0 me-2"
+                                    title="Generate Barcode"
+                                    onClick={() => generateProductBarcode(product)}
+                                    style={{
+                                      width: '35px',
+                                      height: '35px',
+                                      padding: '0',
+                                      borderRadius: '9px',
+                                      background: '#fff8dc',
+                                      color: '#a17d08',
+                                    }}
+                                  >
+                                    <CIcon icon={cilBarcode || cilPrint} />
+                                  </CButton>
+                                )}
                                 <CButton
                                   size="sm"
                                   className="border-0 me-2"

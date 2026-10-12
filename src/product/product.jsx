@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
+import JsBarcode from 'jsbarcode'
 
 import {
   CRow,
@@ -58,6 +59,231 @@ const AddProduct = () => {
   const [brands, setBrands] = useState([])
 
   const [variants, setVariants] = useState([])
+  // ==========================================================
+  // BARCODE GENERATOR
+  // ==========================================================
+
+  const barcodePreviewRef = useRef(null)
+
+  const generateUniqueBarcode = () => {
+    // 13-digit internal Code 128 barcode
+    // Starts with 20 to identify internally generated barcodes.
+    const timestamp = Date.now().toString().slice(-10)
+    const random = Math.floor(Math.random() * 10)
+
+    return `20${timestamp}${random}`
+  }
+
+  const generateProductBarcode = () => {
+    const generatedBarcode = generateUniqueBarcode()
+
+    setFormData((prev) => ({
+      ...prev,
+      barcode: generatedBarcode,
+    }))
+  }
+
+  const generateVariantBarcode = (index) => {
+    const generatedBarcode = generateUniqueBarcode()
+
+    updateVariant(index, 'barcode', generatedBarcode)
+  }
+
+  const renderBarcodePreview = (barcode) => {
+    if (!barcode || !barcodePreviewRef.current) return
+
+    try {
+      JsBarcode(barcodePreviewRef.current, barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 65,
+        displayValue: true,
+        fontSize: 14,
+        margin: 8,
+        background: '#ffffff',
+        lineColor: '#000000',
+      })
+    } catch (error) {
+      console.error('BARCODE PREVIEW ERROR:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (formData.barcode) {
+      renderBarcodePreview(formData.barcode)
+    } else if (barcodePreviewRef.current) {
+      barcodePreviewRef.current.innerHTML = ''
+    }
+  }, [formData.barcode])
+
+  // ==========================================================
+  // PRINT PRODUCT BARCODE
+  // ==========================================================
+
+  const printProductBarcode = async () => {
+    const barcode = String(formData.barcode || '').trim()
+
+    if (!barcode) {
+      errorAlert('Generate a barcode first')
+      return
+    }
+
+    const productName = String(formData.name || 'Product').trim()
+
+    const price = Number(formData.sellingPrice || 0)
+
+    // Create barcode SVG in memory
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+
+    try {
+      JsBarcode(svg, barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 60,
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+      })
+    } catch (error) {
+      console.error('BARCODE PRINT GENERATION ERROR:', error)
+      errorAlert('Unable to generate barcode')
+      return
+    }
+
+    const barcodeSvg = svg.outerHTML
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+
+        <style>
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            width: 80mm;
+            background: #fff;
+            font-family: Arial, sans-serif;
+          }
+
+          .label {
+            width: 80mm;
+            min-height: 38mm;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            padding: 4mm;
+
+            page-break-after: always;
+            text-align: center;
+          }
+
+          .product-name {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 2mm;
+            max-width: 72mm;
+            word-wrap: break-word;
+          }
+
+          .barcode {
+            width: 72mm;
+            max-width: 72mm;
+            height: auto;
+          }
+
+          .price {
+            margin-top: 2mm;
+            font-size: 13px;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="label">
+
+          <div class="product-name">
+            ${escapeHtml(productName)}
+          </div>
+
+          ${barcodeSvg}
+
+          ${
+            price > 0
+              ? `
+                <div class="price">
+                  ₦${price.toLocaleString()}
+                </div>
+              `
+              : ''
+          }
+
+        </div>
+      </body>
+    </html>
+  `
+
+    if (window.electronAPI && typeof window.electronAPI.printReceipt === 'function') {
+      try {
+        const result = await window.electronAPI.printReceipt(html)
+
+        if (!result?.success) {
+          throw new Error(result?.message || 'Failed to print barcode')
+        }
+
+        successAlert(`Barcode sent to ${result.printer || 'receipt printer'}`)
+      } catch (error) {
+        console.error('PRINT BARCODE ERROR:', error)
+
+        errorAlert(error.message || 'Unable to print barcode')
+      }
+
+      return
+    }
+
+    // Browser fallback
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      errorAlert('Please allow popups to print the barcode')
+      return
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
+  }
+
+  const escapeHtml = (value) => {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
 
   // ==========================================================
   // PRODUCT FORM
@@ -651,15 +877,42 @@ const AddProduct = () => {
                   <CCol md={3} className="mb-3">
                     <CFormLabel style={labelStyle}>Barcode</CFormLabel>
 
-                    <CFormInput
-                      name="barcode"
-                      value={formData.barcode}
-                      onChange={handleChange}
-                      placeholder="Barcode"
-                      style={inputStyle}
-                    />
-                  </CCol>
+                    <CInputGroup>
+                      <CFormInput
+                        name="barcode"
+                        value={formData.barcode}
+                        onChange={handleChange}
+                        placeholder="Barcode"
+                        style={{
+                          ...inputStyle,
+                          borderRadius: '10px 0 0 10px',
+                        }}
+                      />
 
+                      <CButton
+                        type="button"
+                        onClick={generateProductBarcode}
+                        style={{
+                          background: '#111827',
+                          color: '#e8bd35',
+                          border: '0',
+                          fontWeight: '700',
+                        }}
+                      >
+                        Generate
+                      </CButton>
+                    </CInputGroup>
+
+                    <small
+                      className="d-block mt-1"
+                      style={{
+                        color: '#9ca3af',
+                        fontSize: '11px',
+                      }}
+                    >
+                      Generate a barcode automatically
+                    </small>
+                  </CCol>
                   {/* CATEGORY */}
 
                   <CCol md={6} className="mb-3">
@@ -706,6 +959,67 @@ const AddProduct = () => {
                     </CFormSelect>
                   </CCol>
                 </CRow>
+
+                {formData.barcode && (
+                  <div
+                    className="mt-3"
+                    style={{
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '14px',
+                      padding: '18px',
+                      background: '#fafafa',
+                    }}
+                  >
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: '700',
+                            color: '#111827',
+                          }}
+                        >
+                          Barcode Preview
+                        </div>
+
+                        <small style={{ color: '#6b7280' }}>{formData.barcode}</small>
+                      </div>
+
+                      <CButton
+                        type="button"
+                        size="sm"
+                        onClick={printProductBarcode}
+                        style={{
+                          background: '#111827',
+                          color: '#e8bd35',
+                          border: '0',
+                          borderRadius: '8px',
+                          fontWeight: '700',
+                        }}
+                      >
+                        Print Barcode
+                      </CButton>
+                    </div>
+
+                    <div
+                      style={{
+                        background: '#fff',
+                        borderRadius: '10px',
+                        padding: '15px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <svg
+                        ref={barcodePreviewRef}
+                        style={{
+                          maxWidth: '100%',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </CCardBody>
             </CCard>
 
@@ -1144,12 +1458,30 @@ const AddProduct = () => {
                         <CCol md={3} className="mb-3">
                           <CFormLabel style={labelStyle}>Variant Barcode</CFormLabel>
 
-                          <CFormInput
-                            value={variant.barcode}
-                            onChange={(e) => updateVariant(index, 'barcode', e.target.value)}
-                            placeholder="Optional"
-                            style={inputStyle}
-                          />
+                          <CInputGroup>
+                            <CFormInput
+                              value={variant.barcode}
+                              onChange={(e) => updateVariant(index, 'barcode', e.target.value)}
+                              placeholder="Optional"
+                              style={{
+                                ...inputStyle,
+                                borderRadius: '10px 0 0 10px',
+                              }}
+                            />
+
+                            <CButton
+                              type="button"
+                              onClick={() => generateVariantBarcode(index)}
+                              style={{
+                                background: '#111827',
+                                color: '#e8bd35',
+                                border: '0',
+                                fontWeight: '700',
+                              }}
+                            >
+                              Generate
+                            </CButton>
+                          </CInputGroup>
                         </CCol>
 
                         {/* COST */}
