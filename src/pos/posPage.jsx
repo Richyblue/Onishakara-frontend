@@ -402,74 +402,80 @@ const POSPage = () => {
     }
   }
 
+  // ============================================================
+  // ELECTRON BARCODE SCANNER
+  // ============================================================
+
   useEffect(() => {
-    let barcodeBuffer = ''
-    let lastKeyTime = 0
-
-    const handleBarcodeScanner = (e) => {
-      // Don't interfere with normal typing in inputs
-      const tag = e.target?.tagName
-
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-        return
-      }
-
-      const now = Date.now()
-
-      // Barcode scanners type very quickly.
-      // If there is a long pause, start a new barcode.
-      if (now - lastKeyTime > 100) {
-        barcodeBuffer = ''
-      }
-
-      lastKeyTime = now
-
-      // Scanner normally finishes with Enter
-      if (e.key === 'Enter') {
-        const scannedBarcode = barcodeBuffer.trim()
-
-        if (scannedBarcode) {
-          handleBarcodeScan(scannedBarcode)
-        }
-
-        barcodeBuffer = ''
-        return
-      }
-
-      // Collect barcode characters
-      if (e.key.length === 1) {
-        barcodeBuffer += e.key
-      }
-    }
-
-    window.addEventListener('keydown', handleBarcodeScanner)
-
-    return () => {
-      window.removeEventListener('keydown', handleBarcodeScanner)
-    }
-  }, [products])
-
-  const handleBarcodeScan = (barcode) => {
-    const scannedBarcode = String(barcode || '').trim()
-
-    if (!scannedBarcode) return
-
-    // Find product by barcode
-    const product = products.find((p) => String(p.barcode || '').trim() === scannedBarcode)
-
-    if (!product) {
-      console.warn(`Product not found: ${scannedBarcode}`)
-
-      // Optional notification
-      alert(`Product not found\nBarcode: ${scannedBarcode}`)
+    // Electron scanner bridge not available
+    if (!window.electronAPI || typeof window.electronAPI.onBarcodeScanned !== 'function') {
+      console.warn('Electron barcode scanner is not available.')
 
       return
     }
 
+    console.log('Electron barcode scanner listener initialized.')
+
+    // Electron main.js sends the completed barcode here
+    const removeBarcodeListener = window.electronAPI.onBarcodeScanned((barcode) => {
+      console.log('Barcode received from Electron:', barcode)
+
+      handleBarcodeScan(barcode)
+    })
+
+    // Remove listener when POS component unmounts
+    return () => {
+      if (typeof removeBarcodeListener === 'function') {
+        removeBarcodeListener()
+      }
+    }
+  }, [products])
+
+  // ============================================================
+  // HANDLE SCANNED BARCODE
+  // ============================================================
+
+  const handleBarcodeScan = (barcode) => {
+    const scannedBarcode = String(barcode || '').trim()
+
+    if (!scannedBarcode) {
+      return
+    }
+
+    console.log('Processing barcode:', scannedBarcode)
+
+    // ----------------------------------------------------------
+    // Find product by barcode
+    // ----------------------------------------------------------
+
+    const product = products.find((p) => {
+      const productBarcode = String(p?.barcode ?? '').trim()
+
+      return productBarcode === scannedBarcode
+    })
+
+    // ----------------------------------------------------------
+    // Product not found
+    // ----------------------------------------------------------
+
+    if (!product) {
+      console.warn(`Product not found: ${scannedBarcode}`)
+
+      // Use your existing notification system here
+      alert(`Product not found\n\nBarcode: ${scannedBarcode}`)
+
+      return
+    }
+
+    // ----------------------------------------------------------
+    // Product found
+    // ----------------------------------------------------------
+
+    console.log('Product found:', product)
+
     // Automatically add product to cart
     selectProduct(product)
   }
-
   const handleAdminLogin = async () => {
     if (!adminEmail.trim() || !adminPassword.trim()) {
       setAdminError('Enter administrator email and password.')
