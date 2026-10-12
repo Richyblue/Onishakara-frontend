@@ -846,19 +846,6 @@ const AddProduct = () => {
                           borderRadius: '10px 0 0 10px',
                         }}
                       />
-
-                      <CButton
-                        type="button"
-                        onClick={generateProductBarcode}
-                        style={{
-                          background: '#111827',
-                          color: '#e8bd35',
-                          border: '0',
-                          fontWeight: '700',
-                        }}
-                      >
-                        Generate
-                      </CButton>
                     </CInputGroup>
 
                     <small
