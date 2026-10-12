@@ -377,6 +377,57 @@ const ProductList = () => {
       errorAlert(error?.message || 'Unable to print barcode.')
     }
   }
+
+  const generateProductBarcode = async (product) => {
+    try {
+      if (!product?.id) {
+        throw new Error('Product ID is missing.')
+      }
+
+      const token = localStorage.getItem('token')
+
+      if (!token) {
+        throw new Error('Authentication token is missing.')
+      }
+
+      console.log('GENERATING BARCODE FOR:', {
+        id: product.id,
+        name: product.name,
+      })
+
+      const response = await axios.post(
+        `${API_URL}api/v1/products/${product.id}/barcode/generate`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      )
+
+      console.log('BARCODE GENERATION RESPONSE:', response.data)
+
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message || response.data?.error || 'Unable to generate barcode.',
+        )
+      }
+
+      successAlert(`Barcode generated: ${response.data.barcode || response.data.product?.barcode}`)
+
+      await getProducts(true)
+    } catch (error) {
+      console.error('GENERATE BARCODE ERROR:', error.response?.data || error)
+
+      errorAlert(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message ||
+          'Unable to generate barcode.',
+      )
+    }
+  }
+
   // =========================================================
   // DELETE PRODUCT
   // =========================================================
