@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
-import JsBarcode from 'jsbarcode'
 
 import {
   CRow,
@@ -59,6 +58,7 @@ const AddProduct = () => {
   const [brands, setBrands] = useState([])
 
   const [variants, setVariants] = useState([])
+
   // ==========================================================
   // BARCODE GENERATOR
   // ==========================================================
@@ -73,48 +73,6 @@ const AddProduct = () => {
 
     return `20${timestamp}${random}`
   }
-
-  const generateProductBarcode = () => {
-    const generatedBarcode = generateUniqueBarcode()
-
-    setFormData((prev) => ({
-      ...prev,
-      barcode: generatedBarcode,
-    }))
-  }
-
-  const generateVariantBarcode = (index) => {
-    const generatedBarcode = generateUniqueBarcode()
-
-    updateVariant(index, 'barcode', generatedBarcode)
-  }
-
-  const renderBarcodePreview = (barcode) => {
-    if (!barcode || !barcodePreviewRef.current) return
-
-    try {
-      JsBarcode(barcodePreviewRef.current, barcode, {
-        format: 'CODE128',
-        width: 2,
-        height: 65,
-        displayValue: true,
-        fontSize: 14,
-        margin: 8,
-        background: '#ffffff',
-        lineColor: '#000000',
-      })
-    } catch (error) {
-      console.error('BARCODE PREVIEW ERROR:', error)
-    }
-  }
-
-  useEffect(() => {
-    if (formData.barcode) {
-      renderBarcodePreview(formData.barcode)
-    } else if (barcodePreviewRef.current) {
-      barcodePreviewRef.current.innerHTML = ''
-    }
-  }, [formData.barcode])
 
   // ==========================================================
   // PRINT PRODUCT BARCODE
