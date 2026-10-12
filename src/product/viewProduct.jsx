@@ -133,7 +133,7 @@ const ProductList = () => {
 
       const token = localStorage.getItem('token')
 
-      const response = await axios.get(`${API_URL}api/v1/products`, {
+      const response = await axios.get(`${API_URL}/api/v1/products`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
