@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
+import JsBarcode from 'jsbarcode'
 
 import {
   CRow,
@@ -65,6 +66,37 @@ const AddProduct = () => {
 
   const barcodePreviewRef = useRef(null)
 
+  // ============================================================
+  // BARCODE PREVIEW
+  // ============================================================
+
+  useEffect(() => {
+    const svg = barcodePreviewRef.current
+    const barcode = String(formData.barcode || '').trim()
+
+    if (!svg) return
+
+    // Clear the previous barcode when the field is empty.
+    svg.innerHTML = ''
+
+    if (!barcode) return
+
+    try {
+      JsBarcode(svg, barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 60,
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+      })
+    } catch (error) {
+      console.error('BARCODE PREVIEW ERROR:', error)
+    }
+  }, [formData.barcode])
+
   const generateUniqueBarcode = () => {
     // 13-digit internal Code 128 barcode
     // Starts with 20 to identify internally generated barcodes.
@@ -72,6 +104,12 @@ const AddProduct = () => {
     const random = Math.floor(Math.random() * 10)
 
     return `20${timestamp}${random}`
+  }
+
+  const generateVariantBarcode = (index) => {
+    const barcode = generateUniqueBarcode()
+
+    updateVariant(index, 'barcode', barcode)
   }
 
   // ==========================================================
@@ -380,8 +418,6 @@ const AddProduct = () => {
       ),
     )
   }
-
-  
 
   // ==========================================================
   // PROFIT
@@ -848,6 +884,25 @@ const AddProduct = () => {
                           borderRadius: '10px 0 0 10px',
                         }}
                       />
+                      <CButton
+                        type="button"
+                        onClick={() => {
+                          const barcode = generateUniqueBarcode()
+
+                          setFormData((prev) => ({
+                            ...prev,
+                            barcode,
+                          }))
+                        }}
+                        style={{
+                          background: '#111827',
+                          color: '#e8bd35',
+                          border: '0',
+                          fontWeight: '700',
+                        }}
+                      >
+                        Generate
+                      </CButton>
                     </CInputGroup>
 
                     <small
