@@ -70,33 +70,7 @@ const AddProduct = () => {
   // BARCODE PREVIEW
   // ============================================================
 
-  useEffect(() => {
-    const svg = barcodePreviewRef.current
-    const barcode = String(formData.barcode || '').trim()
-
-    if (!svg) return
-
-    // Clear the previous barcode when the field is empty.
-    svg.innerHTML = ''
-
-    if (!barcode) return
-
-    try {
-      JsBarcode(svg, barcode, {
-        format: 'CODE128',
-        width: 2,
-        height: 60,
-        displayValue: true,
-        fontSize: 13,
-        margin: 5,
-        background: '#ffffff',
-        lineColor: '#000000',
-      })
-    } catch (error) {
-      console.error('BARCODE PREVIEW ERROR:', error)
-    }
-  }, [formData.barcode])
-
+  
   const generateUniqueBarcode = () => {
     // 13-digit internal Code 128 barcode
     // Starts with 20 to identify internally generated barcodes.
@@ -298,6 +272,34 @@ const AddProduct = () => {
     status: 'active',
     image: null,
   })
+
+  useEffect(() => {
+    const svg = barcodePreviewRef.current
+    const barcode = String(formData.barcode || '').trim()
+
+    if (!svg) return
+
+    // Clear the previous barcode when the field is empty.
+    svg.innerHTML = ''
+
+    if (!barcode) return
+
+    try {
+      JsBarcode(svg, barcode, {
+        format: 'CODE128',
+        width: 2,
+        height: 60,
+        displayValue: true,
+        fontSize: 13,
+        margin: 5,
+        background: '#ffffff',
+        lineColor: '#000000',
+      })
+    } catch (error) {
+      console.error('BARCODE PREVIEW ERROR:', error)
+    }
+  }, [formData.barcode])
+
 
   // ==========================================================
   // LOAD CATEGORIES + BRANDS
