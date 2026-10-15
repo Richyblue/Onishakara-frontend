@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import JsBarcode from 'jsbarcode'
 
 import axios from 'axios'
 import * as XLSX from 'xlsx'
@@ -172,8 +173,13 @@ const ProductList = () => {
         throw new Error('This product does not have a barcode.')
       }
 
-      if (!window.electron || typeof window.electron.printBarcode !== 'function') {
-        throw new Error('Barcode printer is not available in the Electron application.')
+      // Use the Electron API exposed by your preload script.
+      const electronAPI = window.electronAPI
+
+      if (typeof electronAPI?.printBarcode !== 'function') {
+        throw new Error(
+          'Barcode printing is not available. Check that printBarcode is exposed by your Electron preload script.',
+        )
       }
 
       const escapeHtml = (value) =>
@@ -184,187 +190,108 @@ const ProductList = () => {
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;')
 
-      const productName = escapeHtml(product.name)
+      // Generate a standards-compliant CODE128 SVG.
+      const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
 
-      /*
-       * Generate a simple CODE128-style barcode using SVG.
-       * No JsBarcode dependency required.
-       */
-      const generateBarcodeSVG = (value) => {
-        const patterns = {
-          0: '11011001100',
-          1: '11001101100',
-          2: '11001100110',
-          3: '10010011000',
-          4: '10010001100',
-          5: '10001001100',
-          6: '10011001000',
-          7: '10011000100',
-          8: '10001100100',
-          9: '11001001000',
-        }
-
-        const digits = String(value).replace(/\D/g, '')
-
-        if (!digits) {
-          throw new Error('Barcode must contain numbers.')
-        }
-
-        let pattern = '11010010000'
-
-        for (const digit of digits) {
-          pattern += patterns[digit] || patterns[0]
-        }
-
-        pattern += '1100011101011'
-
-        const moduleWidth = 2
-        const barcodeHeight = 45
-
-        let x = 5
-        let bars = ''
-
-        for (const bit of pattern) {
-          if (bit === '1') {
-            bars += `
-              <rect
-                x="${x}"
-                y="2"
-                width="${moduleWidth}"
-                height="${barcodeHeight}"
-                fill="#000000"
-              />
-            `
-          }
-
-          x += moduleWidth
-        }
-
-        const width = x + 5
-
-        return `
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="${width}"
-            height="65"
-            viewBox="0 0 ${width} 65"
-          >
-            <rect
-              width="100%"
-              height="100%"
-              fill="#ffffff"
-            />
-  
-            ${bars}
-  
-            <text
-              x="${width / 2}"
-              y="62"
-              text-anchor="middle"
-              font-family="Arial, sans-serif"
-              font-size="11"
-              fill="#000000"
-            >
-              ${escapeHtml(digits)}
-            </text>
-          </svg>
-        `
-      }
-
-      const barcodeSVG = generateBarcodeSVG(barcode)
-
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="UTF-8" />
-  
-            <style>
-              @page {
-                size: 48mm 24.63mm;
-                margin: 0;
-              }
-  
-              * {
-                box-sizing: border-box;
-              }
-  
-              html,
-              body {
-                margin: 0;
-                padding: 0;
-                width: 48mm;
-                height: 24.63mm;
-                background: #ffffff;
-              }
-  
-              body {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                overflow: hidden;
-                font-family: Arial, sans-serif;
-              }
-  
-              .label {
-                width: 48mm;
-                height: 24.63mm;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 1mm;
-                overflow: hidden;
-              }
-  
-              .product-name {
-                width: 100%;
-                text-align: center;
-                font-size: 8px;
-                font-weight: bold;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                margin-bottom: 1mm;
-              }
-  
-              .barcode {
-                width: 44mm;
-                height: 15mm;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-  
-              .barcode svg {
-                width: 44mm;
-                height: 15mm;
-                display: block;
-              }
-            </style>
-          </head>
-  
-          <body>
-            <div class="label">
-              <div class="product-name">
-                ${productName}
-              </div>
-  
-              <div class="barcode">
-                ${barcodeSVG}
-              </div>
-            </div>
-          </body>
-        </html>
-      `
-
-      console.log('PRINTING BARCODE:', {
-        product: product.name,
-        barcode,
-        printer: 'XP-236B',
+      JsBarcode(svgElement, barcode, {
+        format: 'CODE128',
+        width: 1.5,
+        height: 45,
+        displayValue: true,
+        fontSize: 11,
+        margin: 2,
+        background: '#ffffff',
+        lineColor: '#000000',
       })
 
-      const result = await window.electron.printBarcode(html)
+      // Ensure the SVG has an explicit size for printing.
+      svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      svgElement.setAttribute('width', '44mm')
+      svgElement.setAttribute('height', '15mm')
+      svgElement.style.display = 'block'
+
+      const barcodeSVG = svgElement.outerHTML
+      const productName = escapeHtml(product.name || 'Product')
+
+      const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Product Barcode</title>
+          <style>
+            @page {
+              size: 48mm 24.63mm;
+              margin: 0;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html,
+            body {
+              width: 48mm;
+              height: 24.63mm;
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              font-family: Arial, sans-serif;
+            }
+
+            .label {
+              width: 48mm;
+              height: 24.63mm;
+              padding: 1mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+            }
+
+            .product-name {
+              width: 100%;
+              margin-bottom: 0.5mm;
+              text-align: center;
+              font-size: 8px;
+              font-weight: bold;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+
+            .barcode {
+              width: 44mm;
+              height: 15mm;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+
+            .barcode svg {
+              width: 44mm;
+              height: 15mm;
+              display: block;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="label">
+            <div class="product-name">${productName}</div>
+            <div class="barcode">${barcodeSVG}</div>
+          </div>
+        </body>
+      </html>
+    `
+
+      console.log('PRINTING PRODUCT BARCODE:', {
+        product: product.name,
+        barcode,
+        labelSize: '48mm x 24.63mm',
+      })
+
+      const result = await electronAPI.printBarcode(html)
 
       if (!result?.success) {
         throw new Error(result?.error || 'Barcode printing failed.')
@@ -372,8 +299,7 @@ const ProductList = () => {
 
       successAlert(`Barcode printed for ${product.name}`)
     } catch (error) {
-      console.error('BARCODE PRINT GENERATION ERROR:', error)
-
+      console.error('BARCODE PRINT ERROR:', error)
       errorAlert(error?.message || 'Unable to print barcode.')
     }
   }

@@ -70,7 +70,6 @@ const AddProduct = () => {
   // BARCODE PREVIEW
   // ============================================================
 
-  
   const generateUniqueBarcode = () => {
     // 13-digit internal Code 128 barcode
     // Starts with 20 to identify internally generated barcodes.
@@ -299,7 +298,6 @@ const AddProduct = () => {
       console.error('BARCODE PREVIEW ERROR:', error)
     }
   }, [formData.barcode])
-
 
   // ==========================================================
   // LOAD CATEGORIES + BRANDS
