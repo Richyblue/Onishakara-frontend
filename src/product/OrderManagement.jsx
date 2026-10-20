@@ -11,7 +11,6 @@ import {
   cilClock,
   cilXCircle,
   cilCart,
-  cilEye,
   cilX,
 } from '@coreui/icons'
 import {
@@ -654,7 +653,7 @@ export default function OrderManagement() {
                               color: '#3f3f46',
                             }}
                           >
-                            <CIcon icon={cilEye} />
+                            view
                           </CButton>
                           <CButton
                             size="sm"
