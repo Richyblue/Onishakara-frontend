@@ -59,6 +59,8 @@ const AddProduct = () => {
   const [brands, setBrands] = useState([])
 
   const [variants, setVariants] = useState([])
+  const imageInputRef = useRef(null)
+  const [imagePreviews, setImagePreviews] = useState([])
 
   // ==========================================================
   // BARCODE GENERATOR
@@ -269,7 +271,7 @@ const AddProduct = () => {
     quantity: '',
     reorderLevel: 5,
     status: 'active',
-    image: null,
+    images: [],
   })
 
   useEffect(() => {
@@ -386,13 +388,54 @@ const AddProduct = () => {
   // ==========================================================
 
   const handleImageChange = (e) => {
-    const file = e.target.files?.[0] || null
+    const selectedFiles = Array.from(e.target.files || [])
+    if (!selectedFiles.length) return
 
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    const maxFileSize = 5 * 1024 * 1024
+    const maxImages = 8
+    const validFiles = []
+
+    for (const file of selectedFiles) {
+      if (!allowedTypes.includes(file.type)) {
+        errorAlert(`${file.name}: choose a JPG, PNG or WebP image`)
+        continue
+      }
+      if (file.size > maxFileSize) {
+        errorAlert(`${file.name}: image must be 5MB or smaller`)
+        continue
+      }
+      validFiles.push(file)
+    }
+
+    setFormData((prev) => {
+      const combined = [...prev.images, ...validFiles]
+      if (combined.length > maxImages) {
+        errorAlert(`You can upload a maximum of ${maxImages} product images`)
+      }
+      return { ...prev, images: combined.slice(0, maxImages) }
+    })
+
+    // Allow selecting the same file again after removing it.
+    e.target.value = ''
+  }
+
+  const removeProductImage = (indexToRemove) => {
     setFormData((prev) => ({
       ...prev,
-      image: file,
+      images: prev.images.filter((_, index) => index !== indexToRemove),
     }))
   }
+
+  useEffect(() => {
+    const previews = (formData.images || []).map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    }))
+    setImagePreviews(previews)
+
+    return () => previews.forEach((preview) => URL.revokeObjectURL(preview.url))
+  }, [formData.images])
 
   // ==========================================================
   // VARIANT FUNCTIONS
@@ -599,9 +642,9 @@ const AddProduct = () => {
 
       payload.append('status', formData.status)
 
-      if (formData.image) {
-        payload.append('image', formData.image)
-      }
+      // Send every selected image under the same `images` field.
+      // The backend route should use upload.array('images', 8).
+      formData.images.forEach((image) => payload.append('images', image))
 
       const response = await axios.post(`${API_URL}api/v1/products`, payload, {
         headers: {
@@ -657,17 +700,13 @@ const AddProduct = () => {
         quantity: '',
         reorderLevel: 5,
         status: 'active',
-        image: null,
+        images: [],
       })
 
       setVariants([])
 
-      // Reset file input
-      const fileInput = document.querySelector('input[type="file"]')
-
-      if (fileInput) {
-        fileInput.value = ''
-      }
+      // Reset only the product image picker.
+      if (imageInputRef.current) imageInputRef.current.value = ''
     } catch (error) {
       console.error('CREATE PRODUCT ERROR:', error)
 
@@ -1600,120 +1639,158 @@ const AddProduct = () => {
             </CCard>
 
             {/* =================================================
-                PRODUCT IMAGE
+                PRODUCT IMAGES
             ================================================== */}
 
             <CCard className="mb-4" style={cardStyle}>
               <CCardHeader
                 className="border-0"
-                style={{
-                  background: '#fff',
-                  padding: '20px 24px 14px',
-                }}
+                style={{ background: '#fff', padding: '20px 24px 14px' }}
               >
                 <div className="d-flex align-items-center">
                   <div
                     className="me-3 d-flex align-items-center justify-content-center"
                     style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '11px',
-                      background: '#fff8dc',
-                      color: '#c9a227',
-                      fontWeight: '700',
+                      width: '40px', height: '40px', borderRadius: '11px',
+                      background: '#fff8dc', color: '#c9a227', fontWeight: '700',
                     }}
                   >
                     05
                   </div>
-
                   <div>
-                    <div
-                      style={{
-                        fontSize: '16px',
-                        fontWeight: '700',
-                        color: '#111827',
-                      }}
-                    >
-                      Product Image
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
+                      Product Gallery
                     </div>
-
-                    <small
-                      style={{
-                        color: '#6b7280',
-                      }}
-                    >
-                      Upload a product image
+                    <small style={{ color: '#6b7280' }}>
+                      Add multiple product photos for your Product Details page
                     </small>
+                  </div>
+                  <div className="ms-auto">
+                    <CBadge style={{ background: '#fff8dc', color: '#7c5b00', padding: '8px 10px' }}>
+                      {formData.images.length}/8 images
+                    </CBadge>
                   </div>
                 </div>
               </CCardHeader>
 
-              <CCardBody
-                style={{
-                  padding: '8px 24px 26px',
-                }}
-              >
-                <div
+              <CCardBody style={{ padding: '8px 24px 26px' }}>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  multiple
+                  onChange={handleImageChange}
+                  style={{ display: 'none' }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={formData.images.length >= 8}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    if (imageInputRef.current && e.dataTransfer.files?.length) {
+                      const transfer = e.dataTransfer
+                      const selectedFiles = Array.from(transfer.files)
+                      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+                      const validFiles = selectedFiles.filter((file) => {
+                        if (!allowedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
+                          errorAlert(`${file.name}: use JPG, PNG or WebP images up to 5MB`)
+                          return false
+                        }
+                        return true
+                      })
+                      setFormData((prev) => ({
+                        ...prev,
+                        images: [...prev.images, ...validFiles].slice(0, 8),
+                      }))
+                    }
+                  }}
                   style={{
-                    border: '1.5px dashed #d1d5db',
-                    borderRadius: '14px',
-                    padding: '28px',
-                    textAlign: 'center',
-                    background: '#fafafa',
+                    width: '100%', textAlign: 'center', padding: '28px 18px',
+                    border: '1.5px dashed #d6b84b', borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #fffdf5 0%, #ffffff 100%)',
+                    cursor: formData.images.length >= 8 ? 'not-allowed' : 'pointer',
+                    opacity: formData.images.length >= 8 ? 0.6 : 1,
                   }}
                 >
-                  <div
-                    className="mb-3"
-                    style={{
-                      fontSize: '30px',
-                      color: '#c9a227',
-                    }}
+                  <span
+                    className="d-inline-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '54px', height: '54px', borderRadius: '16px', background: '#fff3c4', color: '#9a7510', fontSize: '27px' }}
                   >
-                    +
+                    ↑
+                  </span>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '15px' }}>
+                    Click to upload or drag product photos here
                   </div>
-
-                  <div
-                    className="mb-1"
-                    style={{
-                      fontWeight: '600',
-                      color: '#374151',
-                    }}
-                  >
-                    Upload product image
+                  <div className="mt-2" style={{ color: '#6b7280', fontSize: '12px' }}>
+                    JPG, PNG or WebP · Up to 5MB each · Maximum 8 images
                   </div>
+                  <div className="mt-3 d-inline-block" style={{ background: '#111827', color: '#e8bd35', padding: '9px 16px', borderRadius: '9px', fontWeight: '700', fontSize: '12px' }}>
+                    Browse images
+                  </div>
+                </button>
 
-                  <small
-                    className="d-block mb-3"
-                    style={{
-                      color: '#9ca3af',
-                    }}
-                  >
-                    PNG, JPG or JPEG
-                  </small>
-
-                  <CFormInput
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    style={{
-                      maxWidth: '420px',
-                      margin: '0 auto',
-                      borderRadius: '10px',
-                    }}
-                  />
-
-                  {formData.image && (
-                    <small
-                      className="d-block mt-3"
-                      style={{
-                        color: '#166534',
-                        fontWeight: '600',
-                      }}
-                    >
-                      ✓ {formData.image.name}
-                    </small>
-                  )}
-                </div>
+                {imagePreviews.length > 0 && (
+                  <div className="mt-4">
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div style={{ fontWeight: '700', color: '#111827' }}>Image previews</div>
+                      <small style={{ color: '#6b7280' }}>The first image can be used as the primary photo</small>
+                    </div>
+                    <CRow className="g-3">
+                      {imagePreviews.map((preview, index) => (
+                        <CCol xs={6} sm={4} md={3} key={`${preview.file.name}-${preview.file.lastModified}-${index}`}>
+                          <div style={{ border: index === 0 ? '2px solid #c9a227' : '1px solid #e5e7eb', borderRadius: '13px', overflow: 'hidden', background: '#fff', height: '100%' }}>
+                            <div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#f8fafc' }}>
+                              <img
+                                src={preview.url}
+                                alt={`Product preview ${index + 1}`}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                              <button
+                                type="button"
+                                aria-label={`Remove image ${index + 1}`}
+                                onClick={() => removeProductImage(index)}
+                                style={{ position: 'absolute', top: '7px', right: '7px', width: '28px', height: '28px', border: 0, borderRadius: '50%', background: 'rgba(17,24,39,.88)', color: '#fff', fontSize: '18px', lineHeight: '1', cursor: 'pointer' }}
+                              >
+                                ×
+                              </button>
+                              {index === 0 && (
+                                <span style={{ position: 'absolute', left: '7px', bottom: '7px', background: '#111827', color: '#e8bd35', padding: '4px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: '700' }}>
+                                  PRIMARY
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ padding: '9px 10px' }}>
+                              <div title={preview.file.name} style={{ color: '#374151', fontSize: '11px', fontWeight: '600', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                                {preview.file.name}
+                              </div>
+                              <small style={{ color: '#9ca3af', fontSize: '10px' }}>
+                                {(preview.file.size / (1024 * 1024)).toFixed(2)} MB
+                              </small>
+                            </div>
+                          </div>
+                        </CCol>
+                      ))}
+                    </CRow>
+                    <div className="mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                      <small style={{ color: '#6b7280' }}>
+                        {formData.images.length} image{formData.images.length === 1 ? '' : 's'} selected
+                      </small>
+                      <CButton
+                        type="button"
+                        color="danger"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData((prev) => ({ ...prev, images: [] }))}
+                        style={{ borderRadius: '8px' }}
+                      >
+                        Remove all images
+                      </CButton>
+                    </div>
+                  </div>
+                )}
               </CCardBody>
             </CCard>
           </CCol>

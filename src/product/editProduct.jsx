@@ -93,9 +93,12 @@ const EditProduct = () => {
 
   const [product, setProduct] = useState(null)
 
-  const [existingImage, setExistingImage] = useState('')
-  const [imagePreview, setImagePreview] = useState('')
-  const [imageFile, setImageFile] = useState(null)
+  const [existingImages, setExistingImages] = useState([])
+  const [newImages, setNewImages] = useState([])
+  const [imagePreviews, setImagePreviews] = useState([])
+  const imageInputRef = React.useRef(null)
+  const MAX_IMAGES = 8
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
   const [formData, setFormData] = useState({
     name: '',
@@ -149,10 +152,15 @@ const EditProduct = () => {
         status: data.status || 'active',
       })
 
-      const image = data.image || data.imageUrl || data.image_url || ''
+      const rawImages = data.images ?? data.productImages ?? data.image ?? data.imageUrl ?? data.image_url ?? []
+      const imageList = (Array.isArray(rawImages) ? rawImages : rawImages ? [rawImages] : [])
+        .map((item) => typeof item === 'string' ? item : item?.url || item?.imageUrl || item?.image_url || item?.image)
+        .filter(Boolean)
+        .slice(0, MAX_IMAGES)
 
-      setExistingImage(image)
-      setImagePreview(image)
+      setExistingImages(imageList)
+      setNewImages([])
+      setImagePreviews(imageList.map((url) => ({ url, source: 'existing' })))
     } catch (err) {
       console.error('GET PRODUCT ERROR:', err)
 
@@ -270,29 +278,59 @@ const EditProduct = () => {
   ========================================================= */
 
   const handleImageChange = (event) => {
-    const file = event.target.files?.[0]
+    const selectedFiles = Array.from(event.target.files || [])
+    if (!selectedFiles.length) return
 
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      errorAlert('Please select a valid image file.')
-      return
+    const validFiles = []
+    for (const file of selectedFiles) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        errorAlert(`${file.name}: use JPG, PNG or WEBP images.`)
+        continue
+      }
+      if (file.size > MAX_IMAGE_SIZE) {
+        errorAlert(`${file.name}: image must not exceed 5MB.`)
+        continue
+      }
+      validFiles.push(file)
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      errorAlert('Image must not be larger than 5MB.')
+    const availableSlots = MAX_IMAGES - existingImages.length - newImages.length
+    if (availableSlots <= 0) {
+      errorAlert(`You can upload a maximum of ${MAX_IMAGES} product images.`)
+      event.target.value = ''
       return
     }
+    if (validFiles.length > availableSlots) {
+      errorAlert(`Only ${availableSlots} more image(s) can be added. Maximum: ${MAX_IMAGES}.`)
+    }
 
-    setImageFile(file)
-
-    const preview = URL.createObjectURL(file)
-    setImagePreview(preview)
+    const accepted = validFiles.slice(0, availableSlots)
+    setNewImages((previous) => [...previous, ...accepted])
+    setImagePreviews((previous) => [
+      ...previous,
+      ...accepted.map((file) => ({ url: URL.createObjectURL(file), name: file.name, size: file.size, source: 'new', file })),
+    ])
+    event.target.value = ''
   }
 
-  const removeImage = () => {
-    setImageFile(null)
-    setImagePreview('')
+  const removeImage = (index) => {
+    const target = imagePreviews[index]
+    if (!target) return
+    if (target.source === 'new') {
+      setNewImages((previous) => previous.filter((file) => file !== target.file))
+      if (target.url?.startsWith('blob:')) URL.revokeObjectURL(target.url)
+    } else {
+      setExistingImages((previous) => previous.filter((url) => url !== target.url))
+    }
+    setImagePreviews((previous) => previous.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  const clearNewImages = () => {
+    imagePreviews.filter((item) => item.source === 'new').forEach((item) => {
+      if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url)
+    })
+    setNewImages([])
+    setImagePreviews((previous) => previous.filter((item) => item.source === 'existing'))
   }
 
   /* =========================================================
@@ -355,9 +393,10 @@ const EditProduct = () => {
        * endpoint so StockMovements remains accurate.
        */
 
-      if (imageFile) {
-        payload.append('image', imageFile)
-      }
+      // New files are sent as repeated `images` fields. The API should preserve
+      // existing image URLs supplied below and save the uploaded files.
+      newImages.forEach((file) => payload.append('images', file))
+      payload.append('existingImages', JSON.stringify(existingImages))
 
       const response = await axios.put(api(`api/v1/products/${id}`), payload, {
         ...authConfig(),
@@ -1380,76 +1419,92 @@ const EditProduct = () => {
                 }}
               >
                 <div
-                  className="rounded d-flex justify-content-center align-items-center overflow-hidden mb-3"
-                  style={{
-                    height: 300,
-                    background: '#181818',
-                    border: '1px dashed #3a3a3a',
-                  }}
+                  className="rounded-4 p-3 mb-3"
+                  style={{ background: '#181818', border: '1px dashed #6d5a25' }}
                 >
-                  {imagePreview ? (
-                    <img
-                      src={imagePreview}
-                      alt={formData.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                      }}
+                  <div className="text-center py-3">
+                    <CIcon icon={cilCloudUpload} size="3xl" style={{ color: '#d4af37' }} />
+                    <h6 className="mt-3 mb-1">Product image gallery</h6>
+                    <p className="small text-body-secondary mb-3">
+                      Add up to {MAX_IMAGES} images. JPG, PNG or WEBP · maximum 5MB each.
+                    </p>
+                    <CButton
+                      type="button"
+                      style={{ background: 'linear-gradient(135deg,#d4af37,#f3d77a)', color: '#111', border: 0, fontWeight: 700 }}
+                      onClick={() => imageInputRef.current?.click()}
+                      disabled={imagePreviews.length >= MAX_IMAGES}
+                    >
+                      <CIcon icon={cilPlus} className="me-2" />
+                      Add Images
+                    </CButton>
+                    <input
+                      ref={imageInputRef}
+                      id="product-image"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={handleImageChange}
+                      hidden
                     />
-                  ) : (
-                    <div className="text-center text-body-secondary">
-                      <CIcon icon={cilImage} size="4xl" />
-
-                      <div className="mt-2">No product image</div>
-                    </div>
-                  )}
+                  </div>
                 </div>
 
-                <CFormLabel htmlFor="product-image" className="w-100">
-                  <div
-                    className="p-3 rounded text-center"
-                    style={{
-                      cursor: 'pointer',
-                      border: '1px solid #444',
-                      background: '#181818',
-                    }}
-                  >
-                    <CIcon
-                      icon={cilCloudUpload}
-                      className="me-2"
-                      style={{
-                        color: '#d4af37',
-                      }}
-                    />
-                    Replace Image
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <small className="text-body-secondary">Selected images</small>
+                  <CBadge color="secondary">{imagePreviews.length}/{MAX_IMAGES}</CBadge>
+                </div>
+
+                {imagePreviews.length ? (
+                  <CRow className="g-3">
+                    {imagePreviews.map((item, index) => (
+                      <CCol xs={6} key={`${item.source}-${item.url}-${index}`}>
+                        <div className="rounded-3 overflow-hidden h-100" style={{ background: '#181818', border: '1px solid #333' }}>
+                          <div style={{ height: 145, background: '#222', position: 'relative' }}>
+                            <img
+                              src={item.url}
+                              alt={item.name || `${formData.name} image ${index + 1}`}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            />
+                            {index === 0 && (
+                              <CBadge color="warning" className="position-absolute top-0 start-0 m-2" style={{ color: '#111' }}>
+                                Primary
+                              </CBadge>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <div className="small text-truncate" title={item.name || item.url}>
+                              {item.name || `Product image ${index + 1}`}
+                            </div>
+                            {item.size ? <small className="text-body-secondary">{(item.size / (1024 * 1024)).toFixed(2)} MB</small> : (
+                              <small className="text-body-secondary">Saved image</small>
+                            )}
+                            <CButton
+                              type="button"
+                              size="sm"
+                              color="danger"
+                              variant="outline"
+                              className="w-100 mt-2"
+                              onClick={() => removeImage(index)}
+                            >
+                              <CIcon icon={cilTrash} className="me-1" /> Remove
+                            </CButton>
+                          </div>
+                        </div>
+                      </CCol>
+                    ))}
+                  </CRow>
+                ) : (
+                  <div className="text-center text-body-secondary rounded-3 py-4" style={{ background: '#181818', border: '1px solid #303030' }}>
+                    <CIcon icon={cilImage} size="3xl" />
+                    <div className="mt-2">No product images yet</div>
                   </div>
-                </CFormLabel>
-
-                <input
-                  id="product-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  hidden
-                />
-
-                {imagePreview && (
-                  <CButton
-                    type="button"
-                    color="danger"
-                    variant="outline"
-                    className="w-100 mt-2"
-                    onClick={removeImage}
-                  >
-                    <CIcon icon={cilTrash} className="me-2" />
-                    Remove Preview
-                  </CButton>
                 )}
 
-                <small className="text-body-secondary d-block mt-3">
-                  Recommended: JPG, PNG or WEBP. Maximum 5MB.
-                </small>
+                {newImages.length > 0 && (
+                  <CButton type="button" color="secondary" variant="outline" className="w-100 mt-3" onClick={clearNewImages}>
+                    Clear newly added images
+                  </CButton>
+                )}
               </CCardBody>
             </CCard>
 

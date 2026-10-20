@@ -62,6 +62,8 @@ const ProductList = () => {
   const [stockFilter, setStockFilter] = useState('all')
 
   const [currentPage, setCurrentPage] = useState(1)
+  const [imageGallery, setImageGallery] = useState(null)
+  const [activeGalleryImage, setActiveGalleryImage] = useState(0)
 
   const itemsPerPage = 10
 
@@ -103,6 +105,40 @@ const ProductList = () => {
     }
 
     return `${API_URL}/${value}`
+  }
+
+  // Supports the new `images` array as well as legacy `image` values.
+  const getProductImages = (product) => {
+    let images = product?.images
+
+    if (typeof images === 'string') {
+      try {
+        images = JSON.parse(images)
+      } catch {
+        images = images ? [images] : []
+      }
+    }
+
+    if (!Array.isArray(images)) images = images ? [images] : []
+
+    const normalized = images
+      .map((item) => {
+        if (typeof item === 'string') return item
+        return item?.url || item?.imageUrl || item?.path || item?.image || ''
+      })
+      .filter(Boolean)
+
+    // Keep compatibility with products created before multiple images were added.
+    if (!normalized.length && product?.image) normalized.push(product.image)
+
+    return [...new Set(normalized.map((item) => String(item).trim()).filter(Boolean))]
+  }
+
+  const openImageGallery = (product) => {
+    const images = getProductImages(product)
+    if (!images.length) return
+    setImageGallery({ product, images })
+    setActiveGalleryImage(0)
   }
 
   const getStockStatus = (product) => {
@@ -612,6 +648,146 @@ const ProductList = () => {
         paddingBottom: '30px',
       }}
     >
+      {imageGallery && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Images for ${imageGallery.product?.name || 'product'}`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setImageGallery(null)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setImageGallery(null)
+          }}
+          tabIndex={-1}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            background: 'rgba(9,9,11,0.82)',
+            backdropFilter: 'blur(5px)',
+          }}
+        >
+          <div
+            style={{
+              width: 'min(900px, 100%)',
+              maxHeight: '92vh',
+              overflow: 'auto',
+              borderRadius: '18px',
+              background: '#fff',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+            }}
+          >
+            <div
+              className="d-flex align-items-center justify-content-between"
+              style={{ padding: '18px 20px', borderBottom: '1px solid #eee' }}
+            >
+              <div>
+                <div
+                  style={{
+                    color: '#a17d08',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    letterSpacing: '1.5px',
+                  }}
+                >
+                  ONISHAKARA GOLD
+                </div>
+                <div
+                  style={{ color: '#18181b', fontSize: '17px', fontWeight: 800, marginTop: '3px' }}
+                >
+                  {imageGallery.product?.name || 'Product images'}
+                </div>
+                <div style={{ color: '#71717a', fontSize: '12px', marginTop: '3px' }}>
+                  Image {activeGalleryImage + 1} of {imageGallery.images.length}
+                </div>
+              </div>
+              <CButton
+                type="button"
+                onClick={() => setImageGallery(null)}
+                aria-label="Close image gallery"
+                className="border-0"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  padding: 0,
+                  borderRadius: '10px',
+                  background: '#f4f4f5',
+                  color: '#18181b',
+                }}
+              >
+                <CIcon icon={cilX} />
+              </CButton>
+            </div>
+            <div style={{ padding: '20px' }}>
+              <div
+                style={{
+                  minHeight: '280px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#fafafa',
+                  borderRadius: '14px',
+                  overflow: 'hidden',
+                }}
+              >
+                <img
+                  src={getImageUrl(imageGallery.images[activeGalleryImage])}
+                  alt={`${imageGallery.product?.name || 'Product'} image ${activeGalleryImage + 1}`}
+                  onError={(event) => {
+                    event.currentTarget.alt = 'Unable to load this product image'
+                  }}
+                  style={{
+                    display: 'block',
+                    maxWidth: '100%',
+                    maxHeight: '60vh',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+              {imageGallery.images.length > 1 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '15px' }}>
+                  {imageGallery.images.map((image, index) => (
+                    <button
+                      key={`${image}-${index}`}
+                      type="button"
+                      onClick={() => setActiveGalleryImage(index)}
+                      aria-label={`Show product image ${index + 1}`}
+                      aria-pressed={activeGalleryImage === index}
+                      style={{
+                        padding: '3px',
+                        width: '68px',
+                        height: '68px',
+                        borderRadius: '10px',
+                        border:
+                          activeGalleryImage === index ? '2px solid #c9a227' : '1px solid #e4e4e7',
+                        background: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <img
+                        src={getImageUrl(image)}
+                        alt=""
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: '6px',
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* =====================================================
           PREMIUM ONISHAKARA GOLD HEADER
       ====================================================== */}
@@ -1373,41 +1549,83 @@ const ProductList = () => {
                               }}
                             >
                               <div className="d-flex align-items-center">
-                                {product.image ? (
-                                  <img
-                                    src={getImageUrl(product.image)}
-                                    alt={product.name}
-                                    width="52"
-                                    height="52"
-                                    onError={(event) => {
-                                      event.currentTarget.style.display = 'none'
-                                      event.currentTarget.nextSibling.style.display = 'flex'
-                                    }}
+                                {getProductImages(product).length > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openImageGallery(product)}
+                                    title={`View ${getProductImages(product).length} product image(s)`}
+                                    aria-label={`View images for ${product.name}`}
                                     style={{
-                                      objectFit: 'cover',
+                                      position: 'relative',
+                                      display: 'block',
+                                      width: '52px',
+                                      height: '52px',
+                                      flex: '0 0 52px',
+                                      padding: 0,
+                                      border: 0,
                                       borderRadius: '12px',
-                                      border: '1px solid #e4e4e7',
                                       background: '#fafafa',
+                                      cursor: 'zoom-in',
                                     }}
-                                  />
-                                ) : null}
-
-                                <div
-                                  className="align-items-center justify-content-center"
-                                  style={{
-                                    display: product.image ? 'none' : 'flex',
-                                    width: '52px',
-                                    height: '52px',
-                                    borderRadius: '12px',
-                                    background: 'linear-gradient(135deg,#fafafa,#f4f4f5)',
-                                    border: '1px solid #e4e4e7',
-                                    color: '#a1a1aa',
-                                    fontSize: '10px',
-                                    fontWeight: '800',
-                                  }}
-                                >
-                                  NO IMAGE
-                                </div>
+                                  >
+                                    <img
+                                      src={getImageUrl(getProductImages(product)[0])}
+                                      alt={product.name || 'Product'}
+                                      width="52"
+                                      height="52"
+                                      onError={(event) => {
+                                        event.currentTarget.style.visibility = 'hidden'
+                                      }}
+                                      style={{
+                                        display: 'block',
+                                        objectFit: 'cover',
+                                        borderRadius: '12px',
+                                        border: '1px solid #e4e4e7',
+                                        background: '#fafafa',
+                                      }}
+                                    />
+                                    {getProductImages(product).length > 1 && (
+                                      <span
+                                        style={{
+                                          position: 'absolute',
+                                          right: '-5px',
+                                          bottom: '-5px',
+                                          minWidth: '22px',
+                                          height: '22px',
+                                          padding: '0 5px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          borderRadius: '11px',
+                                          background: '#c9a227',
+                                          color: '#111827',
+                                          border: '2px solid #fff',
+                                          fontSize: '10px',
+                                          fontWeight: 800,
+                                        }}
+                                      >
+                                        +{getProductImages(product).length - 1}
+                                      </span>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <div
+                                    className="d-flex align-items-center justify-content-center"
+                                    style={{
+                                      width: '52px',
+                                      height: '52px',
+                                      flex: '0 0 52px',
+                                      borderRadius: '12px',
+                                      background: 'linear-gradient(135deg,#fafafa,#f4f4f5)',
+                                      border: '1px solid #e4e4e7',
+                                      color: '#a1a1aa',
+                                      fontSize: '9px',
+                                      fontWeight: '800',
+                                    }}
+                                  >
+                                    NO IMAGE
+                                  </div>
+                                )}
 
                                 <div
                                   className="ms-3"
