@@ -108,7 +108,7 @@ export default function OrderManagement() {
     async (refresh = false) => {
       try {
         refresh ? setRefreshing(true) : setLoading(true)
-        const r = await axios.get(`${API_URL}api/v1/orders`, {
+        const r = await axios.get(`${API_URL}/api/v1/orders`, {
           ...auth(),
           params: {
             search: search.trim() || undefined,
