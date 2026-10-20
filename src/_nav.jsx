@@ -284,6 +284,12 @@ const _nav = [
         name: 'Sales Summary',
         to: '/salesReport',
       },
+
+      {
+        component: CNavItem,
+        name: 'Order Management',
+        to: '/order',
+      },
     ],
   },
 

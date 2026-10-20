@@ -23,6 +23,7 @@ const Products = React.lazy(() => import('./product/product'))
 const ViewProduct = React.lazy(() => import('./product/viewProduct'))
 const EditProduct = React.lazy(() => import('./product/editProduct'))
 const RecycleBin = React.lazy(() => import('./product/RecycleBin'))
+const OrderManagement = React.lazy(() => import('./product/OrderManagement'))
 
 const Categories = React.lazy(() => import('./categories/Category'))
 const AddCategories = React.lazy(() => import('./categories/AddCategoty'))
@@ -186,6 +187,13 @@ export const routes = [
     path: '/recycleBin',
     name: 'Product Recycle Bin',
     element: RecycleBin,
+    roles: ['admin', 'manager'],
+  },
+
+  {
+    path: '/order',
+    name: 'Order Management',
+    element: OrderManagement,
     roles: ['admin', 'manager'],
   },
 
